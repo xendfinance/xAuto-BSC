@@ -1,10 +1,5 @@
-/**
- *Submitted for verification at Etherscan.io on 2020-02-06
-*/
-
-// File: @openzeppelin\contracts\token\ERC20\IERC20.sol
-
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.6.8;
 
 import './libraries/Context.sol';
 import './libraries/Ownable.sol';
@@ -17,16 +12,10 @@ interface IAPRWithPoolOracle {
 
   function getFulcrumAPRAdjusted(address token, uint256 _supply) external view returns(uint256);
   function getFortubeAPRAdjusted(address token) external view returns (uint256);
-  function getNerveAPRAdjusted(address token) external view returns (uint256);
-  function getVenusAPRAdjusted(address token) external view returns (uint256);
+  function calcVenusAPR(address token) external returns(bool);
+  function getVenusAPRAdjusted() external view returns (uint256);
 
 }
-
-interface IxToken {
-  function calcPoolValueInToken() external view returns (uint256);
-  function decimals() external view returns (uint256);
-}
-
 
 contract EarnAPRWithPool is Ownable {
     using SafeMath for uint;
@@ -34,9 +23,7 @@ contract EarnAPRWithPool is Ownable {
 
     mapping(address => uint256) public pools;
     mapping(address => address) public fulcrum;
-    mapping(address => address) public xTokens;
     mapping(address => address) public fortube;
-    mapping(address => address) public nerve;
     mapping(address => address) public venus;
 
     address public APR;
@@ -53,70 +40,46 @@ contract EarnAPRWithPool is Ownable {
         addFTToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, 0xBf9213D046C2c1e6775dA2363fC47F10C4471255); //ftUSDT
         addFTToken(0x55d398326f99059fF775485246999027B3197955, 0xb2CB0Af60372E242710c42e1C34579178c3D2BED); //ftUSDC
 
-        // addNToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, ); //nBUSD
-        // addNToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, ); //nUSDT
-        // addNToken(0x55d398326f99059fF775485246999027B3197955, ); //nUSDC
-
-        // addVToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, ); //vBUSD
-        // addVToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, ); //vUSDT
-        // addVToken(0x55d398326f99059fF775485246999027B3197955, ); //vUSDC
+        addVToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0x95c78222B3D6e262426483D42CfA53685A67Ab9D); //vBUSD 2
+        addVToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, 0xfD5840Cd36d94D7229439859C0112a4185BC0255); //vUSDT 1
+        addVToken(0x55d398326f99059fF775485246999027B3197955, 0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8); //vUSDC 0
     }
 
     // Wrapper for legacy v1 token support
-    function recommend(address _token) public view returns (
+    function recommend(address _token) public returns (
       string memory choice,
       uint256 fapr,
       uint256 ftapr,
-      uint256 napr,
       uint256 vapr
     ) {
-      (fapr, ftapr, napr, vapr) = getAPROptionsInc(_token);
-      return (choice, fapr, ftapr, napr, vapr);
+      (fapr, ftapr, vapr) = getAPROptionsInc(_token);
+      return (choice, fapr, ftapr, vapr);
     }
 
-    function getAPROptionsInc(address _token) public view returns (
+    function getAPROptionsInc(address _token) public returns (
       uint256 _fulcrum,
       uint256 _fortube,
-      uint256 _nerve,
-      uint256 _venus
-    ) {
-      address xToken = xTokens[_token];
-      uint256 _supply = 0;
-      if (xToken != address(0)) {
-        _supply = IxToken(xToken).calcPoolValueInToken();
-      }
-      return getAPROptionsAdjusted(_token, _supply);
-    }
-
-    function getAPROptionsAdjusted(address _token, uint256 _supply) public view returns (
-      uint256 _fulcrum,
-      uint256 _fortube,
-      uint256 _nerve,
       uint256 _venus
     ) {
 
       address addr;
       addr = fulcrum[_token];
       if (addr != address(0)) {
-        _fulcrum = IAPRWithPoolOracle(APR).getFulcrumAPRAdjusted(addr, _supply);
+        _fulcrum = IAPRWithPoolOracle(APR).getFulcrumAPRAdjusted(addr, 0);
       }
       addr = fortube[_token];
       if (addr != address(0)) {
         _fortube = IAPRWithPoolOracle(APR).getFortubeAPRAdjusted(addr);
       }
-      addr = nerve[_token];
-      if (addr != address(0)) {
-        _nerve = IAPRWithPoolOracle(APR).getNerveAPRAdjusted(addr);
-      }
       addr = venus[_token];
       if (addr != address(0)) {
-        _venus = IAPRWithPoolOracle(APR).getVenusAPRAdjusted(addr);
+        IAPRWithPoolOracle(APR).calcVenusAPR(addr);
+        _venus = IAPRWithPoolOracle(APR).getVenusAPRAdjusted();
       }
 
       return (
         _fulcrum,
         _fortube,
-        _nerve,
         _venus
       );
     }
@@ -128,25 +91,11 @@ contract EarnAPRWithPool is Ownable {
         fulcrum[token] = fToken;
     }
 
-    function addXToken(
-      address token,
-      address xToken
-    ) public onlyOwner {
-        xTokens[token] = xToken;
-    }
-
     function addFTToken(
       address token,
       address ftToken
     ) public onlyOwner {
         fortube[token] = ftToken;
-    }
-
-    function addNToken(
-      address token,
-      address nToken
-    ) public onlyOwner {
-        nerve[token] = nToken;
     }
 
     function addVToken(

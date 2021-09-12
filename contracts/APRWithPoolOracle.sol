@@ -1,10 +1,12 @@
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.6.8;
 pragma experimental ABIEncoderV2;
 import './libraries/Context.sol';
 import './libraries/Ownable.sol';
 import './libraries/SafeMath.sol';
 import './libraries/Address.sol';
 import './interfaces/IERC20.sol';
+import "./libraries/AttoDecimal.sol";
 
 // Fulcrum
 interface IFulcrum {
@@ -16,38 +18,56 @@ interface IFortube {
     function APY() external view returns (uint256);
 }
 
+interface IVenus {
+  function supplyRatePerBlock() external view returns (uint);
+}
+
 contract APRWithPoolOracle is Ownable {
   using SafeMath for uint256;
   using Address for address;
+  using AttoDecimal for AttoDecimal.Instance;
 
-  function getFulcrumAPRAdjusted(address token, uint256 _supply) public view returns(uint256) {
+  AttoDecimal.Instance private _temp;
+  AttoDecimal.Instance private _decimal;
+  function getFulcrumAPRAdjusted(address token, uint256 _supply) external view returns(uint256) {
     if(token == address(0))
       return 0;
     else
-      return IFulcrum(token).nextSupplyInterestRate(_supply).mul(1e7);
+      return IFulcrum(token).nextSupplyInterestRate(_supply);
   }
 
-  function getFortubeAPRAdjusted(address token) public view returns (uint256) {
+  function getFortubeAPRAdjusted(address token) external view returns (uint256) {
     if(token == address(0))
       return 0;
     else{
       IFortube fortube = IFortube(token);
-      return fortube.APY().mul(1e9);
+      return fortube.APY().mul(100);
     }
   }
 
-  function getNerveAPRAdjusted(address token) public view returns (uint256) {
-    if(token == address(0))
-      return 0;
-    else
-      return 0;
+  function getVenusAPRAdjusted() external view returns (uint256) {
+    return getVenusAPRValue();
   }
 
-  function getVenusAPRAdjusted(address token) public view returns (uint256) {
-    if(token == address(0))
-      return 0;
-    else
-      return 0;
+  function getVenusAPRValue()
+    public
+    view
+    returns (
+        uint256 value
+    )
+  {
+      return _decimal.getValue();
+  }
+
+  function calcVenusAPR(address token) external onlyOwner returns (bool success) {
+    uint256 supplyRatePerBlock = IVenus(token).supplyRatePerBlock();
+    _temp = AttoDecimal.convert(supplyRatePerBlock).div(1000000000000000000).mul(20*60*24).add(1);
+    _decimal = _temp;
+    uint i = 0;
+    for (; i < 365; i ++ ){
+      _decimal = _decimal.mul(_temp);
+    }
+    _decimal = _decimal.sub(1).mul(100);
+    return true;
   }
 }
-// interestRateStrategyAddress

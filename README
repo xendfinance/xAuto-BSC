@@ -1,1 +1,2 @@
-
+To fork polygon bsc for test
+ganache-cli -f https://bsc.getblock.io/mainnet/?api_key=87d3c7a2-b307-41b4-a339-51575c925654 -m "hidden moral pulp timber famous opinion melt any praise keen tissue aware" -l 100000000 -i 1 -u 0xefdca55e4bce6c1d535cb2d0687b5567eef2ae83 --allowUnlimitedContractSize
