@@ -59,7 +59,7 @@ contract APRWithPoolOracle is Ownable {
       return _decimal.getValue();
   }
 
-  function calcVenusAPR(address token) external onlyOwner returns (bool success) {
+  function calcVenusAPR(address token) external returns (bool success) {
     uint256 supplyRatePerBlock = IVenus(token).supplyRatePerBlock();
     _temp = AttoDecimal.convert(supplyRatePerBlock).div(1000000000000000000).mul(20*60*24).add(1);
     _decimal = _temp;
