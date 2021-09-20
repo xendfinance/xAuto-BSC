@@ -137,7 +137,7 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   receive() external payable {}
 
   function recommend() public returns (Lender) {
-    (, uint256 fapr, uint256 ftapr, uint256 vapr) = IIEarnManager(apr).recommend(token);
+    (uint256 fapr, uint256 ftapr, uint256 vapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
       max = fapr;

@@ -47,16 +47,6 @@ contract EarnAPRWithPool is Ownable {
 
     // Wrapper for legacy v1 token support
     function recommend(address _token) public returns (
-      string memory choice,
-      uint256 fapr,
-      uint256 ftapr,
-      uint256 vapr
-    ) {
-      (fapr, ftapr, vapr) = getAPROptionsInc(_token);
-      return (choice, fapr, ftapr, vapr);
-    }
-
-    function getAPROptionsInc(address _token) public returns (
       uint256 _fulcrum,
       uint256 _fortube,
       uint256 _venus
