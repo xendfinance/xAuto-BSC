@@ -2,7 +2,7 @@
 
 pragma solidity 0.6.8;
 
-import "./Context.sol";
+import "@openzeppelin/contracts/utils/Context.sol";
 /**
  * @dev Contract module which provides a basic access control mechanism, where
  * there is an account (an owner) that can be granted exclusive access to
@@ -17,6 +17,7 @@ import "./Context.sol";
  */
 abstract contract Ownable is Context {
     address private _owner;
+    address private _candidate;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
@@ -62,7 +63,12 @@ abstract contract Ownable is Context {
      */
     function transferOwnership(address newOwner) public virtual onlyOwner {
         require(newOwner != address(0), "Ownable: new owner is the zero address");
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
+        _candidate = newOwner;
+    }
+
+    function acceptOwnership() external {
+        require(msg.sender == _candidate, "Ownable: not cadidate");
+        emit OwnershipTransferred(_owner, _candidate);
+        _owner = _candidate;
     }
 }

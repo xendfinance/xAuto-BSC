@@ -2,15 +2,14 @@
 pragma solidity 0.6.8;
 pragma experimental ABIEncoderV2;
 
-import './libraries/Context.sol';
-import './libraries/Ownable.sol';
-import './interfaces/IERC20.sol';
-import './libraries/SafeMath.sol';
-import './libraries/Decimal.sol';
-import './libraries/Address.sol';
-import './libraries/SafeERC20.sol';
-import './libraries/ReentrancyGuard.sol';
-import './libraries/ERC20.sol';
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/utils/Context.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "./libraries/Ownable.sol";
 import './libraries/TokenStructs.sol';
 import './interfaces/FortubeToken.sol';
 import './interfaces/FortubeBank.sol';
@@ -33,6 +32,7 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   address public feeAddress;
   uint256 public feeAmount;
   address public venusToken;
+  uint256 public feePrecision;
 
   mapping (address => uint256) depositedAmount;
 
@@ -56,6 +56,7 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     feeAddress = address(0x143afc138978Ad681f7C7571858FAAA9D426CecE);
     venusToken = address(0xfD5840Cd36d94D7229439859C0112a4185BC0255);
     feeAmount = 0;
+    feePrecision = 1000;
     approveToken();
   }
 
@@ -63,11 +64,14 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       apr = _new_APR;
   }
   function set_new_feeAmount(uint256 fee) public onlyOwner{
-    require(fee < 1000, 'fee amount must be less than 100%');
+    require(fee < feePrecision, 'fee amount must be less than 100%');
     feeAmount = fee;
   }
   function set_new_fee_address(address _new_fee_address) public onlyOwner {
       feeAddress = _new_fee_address;
+  }
+  function set_new_feePrecision(uint256 _newFeePrecision) public onlyOwner{
+    feePrecision = _newFeePrecision;
   }
   // Quick swap low gas method for pool swaps
   function deposit(uint256 _amount)
@@ -126,14 +130,14 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
         _withdrawSome(r.sub(b));
       }
 
-      uint256 fee = profit.mul(feeAmount).div(1000);
+      uint256 fee = profit.mul(feeAmount).div(feePrecision);
       if(fee > 0){
         IERC20(token).approve(feeAddress, fee);
         ITreasury(feeAddress).depositToken(token);
       }
       IERC20(token).safeTransfer(msg.sender, r.sub(fee));
       _burn(msg.sender, _shares);
-      depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(_shares);
+      depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(_shares.mul(depositedAmount[msg.sender]).div(ibalance));
       rebalance();
       pool = _calcPoolValueInToken();
       emit Withdraw(msg.sender, _shares);
@@ -175,6 +179,7 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   function approveToken() public {
       IERC20(token).approve(fulcrum, uint(-1));
       IERC20(token).approve(FortubeBank(fortubeBank).controller(),  uint(-1));
+      IERC20(token).approve(venusToken, uint(-1));
   }
 
   function balanceFortubeInToken() public view returns (uint256) {
@@ -198,6 +203,8 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   function balanceVenusInToken() public view returns (uint256) {
     uint256 b = balanceVenus();
     if (b > 0) {
+      uint256 exchangeRate = IVenus(venusToken).exchangeRateStored();
+      b = b.mul(exchangeRate).div(10**28);
     }
     return b;
   }
@@ -236,7 +243,12 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function _balanceVenusInToken() internal view returns (uint256) {
-
+    uint256 b = balanceVenus();
+    if (b > 0) {
+      uint256 exchangeRate = IVenus(venusToken).exchangeRateStored();
+      b = b.mul(exchangeRate).div(10**28);
+    }
+    return b;
   }
 
   function _balanceFulcrum() internal view returns (uint256) {
@@ -247,7 +259,7 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     return IERC20(fortubeToken).balanceOf(address(this));
   }
   function _balanceVenus() internal view returns (uint256) {
-    // return IERC20(fortubeToken).balanceOf(address(this));
+    return IERC20(venusToken).balanceOf(address(this));
   }
 
   function _withdrawAll() internal {

@@ -58,10 +58,11 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         // console.log(fulcrum_rate.toString());
 
         // await aprWithPoolOracle.calcVenusAPR('0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8');
-        // let result = await aprWithPoolOracle.getVenusAPRAdjusted();
-        let result = await earnAPRWithPool.recommend('0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56')
+        // let result = await aprWithPoolOracle.calcVenusAPR('0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8');
+        await xbusd.rebalance();
+        let result = await xbusd.provider();
     
-        console.log('decimal', result.logs[0].args);
+        console.log('provider', result.toString());
 
         // console.log(await xaave.recommend());
     })

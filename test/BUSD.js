@@ -9,7 +9,7 @@ const busdABI = require('./abi/busd');
 
 const busdAddress = '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56';
 const busdContract = new web3.eth.Contract(busdABI, busdAddress);
-const busdOwner = '0xD5fFaab18cE0E5A50BE03392388BA0b147b218bD';
+const busdOwner = '0x468c0cfae487a9de23e20d0b29a2835dc058cdf7';
 
 contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
 
@@ -29,15 +29,15 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         await forceSend.go(busdOwner, { value: ether('1') });
         
         await busdContract.methods.transfer(alice, '10000000000').send({ from: busdOwner});
+        await busdContract.methods.transfer(admin, '10000000000').send({ from: busdOwner});
+        await busdContract.methods.transfer(bob, '10000000000').send({ from: busdOwner});
+        await busdContract.methods.transfer(minter, '10000000000').send({ from: busdOwner});
+        await busdContract.methods.transfer(dev, '10000000000').send({ from: busdOwner});
         
 
-        // let xaave = this.xaaveContract
-
-        // await aaveContract.methods.approve(xaave.address, 10000000).send({
-        //     from: alice
-        // });
-
-        // await xaave.deposit(10000000, {from: alice});
+        await busdContract.methods.transfer(this.xbusdContract.address, 10000).send({
+            from: admin
+        });
         console.log('---ended-before---');
     });
 
@@ -47,12 +47,14 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         let xbusd = this.xbusdContract;
         await earnAPRWithPool.set_new_APR(aprWithPoolOracle.address)
         await xbusd.set_new_APR(earnAPRWithPool.address)
+        let balanceOfAlice = await busdContract.methods.balanceOf(alice).call();
+        console.log('balanceOfAlice', balanceOfAlice);
 
-        await busdContract.methods.approve(xbusd.address, 10000000).send({
+        await busdContract.methods.approve(xbusd.address, 1000).send({
             from: alice
         });
 
-        await xbusd.deposit(10000000, {from: alice});
+        await xbusd.deposit(1000, {from: alice});
         const balance = await xbusd.balanceOf(alice);
         console.log('balance', balance.toString());
         const tokenAmount = await xbusd.balanceOf(alice);
