@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.6.8;
 
-import './libraries/Context.sol';
-import './libraries/Ownable.sol';
-import './interfaces/IERC20.sol';
-import './libraries/SafeMath.sol';
-import './libraries/Decimal.sol';
-import './libraries/Address.sol';
+import "@openzeppelin/contracts/utils/Context.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
+import "./libraries/Ownable.sol";
 
 interface IAPRWithPoolOracle {
 
@@ -78,6 +77,7 @@ contract EarnAPRWithPool is Ownable {
       address token,
       address fToken
     ) public onlyOwner {
+      require(fulcrum[token] == address(0), "This token is already set.");
         fulcrum[token] = fToken;
     }
 
@@ -85,6 +85,7 @@ contract EarnAPRWithPool is Ownable {
       address token,
       address ftToken
     ) public onlyOwner {
+      require(fortube[token] == address(0), "This token is already set.");
         fortube[token] = ftToken;
     }
 
@@ -92,6 +93,7 @@ contract EarnAPRWithPool is Ownable {
       address token,
       address vToken
     ) public onlyOwner {
+      require(venus[token] == address(0), "This token is already set.");
         venus[token] = vToken;
     }
 
