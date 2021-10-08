@@ -13,6 +13,7 @@ interface IAPRWithPoolOracle {
   function getFortubeAPRAdjusted(address token) external view returns (uint256);
   function calcVenusAPR(address token) external returns(bool);
   function getVenusAPRAdjusted() external view returns (uint256);
+  function getAlpacaAPRAdjusted(address token) external view returns (uint256);
 
 }
 
@@ -24,6 +25,7 @@ contract EarnAPRWithPool is Ownable {
     mapping(address => address) public fulcrum;
     mapping(address => address) public fortube;
     mapping(address => address) public venus;
+    mapping(address => address) public alpaca;
 
     address public APR;
 
@@ -42,13 +44,17 @@ contract EarnAPRWithPool is Ownable {
         addVToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0x95c78222B3D6e262426483D42CfA53685A67Ab9D); //vBUSD 2
         addVToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, 0xfD5840Cd36d94D7229439859C0112a4185BC0255); //vUSDT 1
         addVToken(0x55d398326f99059fF775485246999027B3197955, 0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8); //vUSDC 0
+
+        addAToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0x7C9e73d4C71dae564d41F78d56439bB4ba87592f); //aBUSD
+        addAToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, 0x158Da805682BdC8ee32d52833aD41E74bb951E59); //aUSDT
     }
 
     // Wrapper for legacy v1 token support
     function recommend(address _token) public returns (
       uint256 _fulcrum,
       uint256 _fortube,
-      uint256 _venus
+      uint256 _venus,
+      uint256 _alpaca
     ) {
 
       address addr;
@@ -65,11 +71,16 @@ contract EarnAPRWithPool is Ownable {
         IAPRWithPoolOracle(APR).calcVenusAPR(addr);
         _venus = IAPRWithPoolOracle(APR).getVenusAPRAdjusted();
       }
+      addr = alpaca[_token];
+      if (addr != address(0)) {
+        _alpaca = IAPRWithPoolOracle(APR).getAlpacaAPRAdjusted(addr);
+      }
 
       return (
         _fulcrum,
         _fortube,
-        _venus
+        _venus,
+        _alpaca
       );
     }
 
@@ -95,6 +106,14 @@ contract EarnAPRWithPool is Ownable {
     ) public onlyOwner {
       require(venus[token] == address(0), "This token is already set.");
         venus[token] = vToken;
+    }
+
+    function addAToken(
+      address token,
+      address aToken
+    ) public onlyOwner {
+      require(alpaca[token] == address(0), "This token is already set.");
+        alpaca[token] = aToken;
     }
 
     function set_new_APR(address _new_APR) public onlyOwner {
