@@ -67,6 +67,8 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       feeAddress = _new_fee_address;
   }
   function set_new_feePrecision(uint256 _newFeePrecision) public onlyOwner{
+    assert(_newFeePrecision >= 100);
+    set_new_feeAmount(feeAmount*_newFeePrecision/feePrecision);
     feePrecision = _newFeePrecision;
   }
   // Quick swap low gas method for pool swaps
@@ -141,7 +143,7 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   receive() external payable {}
 
   function recommend() public returns (Lender) {
-    (uint256 fapr, uint256 ftapr, uint256 vapr) = IIEarnManager(apr).recommend(token);
+    (uint256 fapr, uint256 ftapr, uint256 vapr, uint256 aapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
       max = fapr;

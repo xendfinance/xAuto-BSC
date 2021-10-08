@@ -17,6 +17,7 @@ import './interfaces/Fulcrum.sol';
 import './interfaces/IIEarnManager.sol';
 import './interfaces/ITreasury.sol';
 import './interfaces/IVenus.sol';
+import './interfaces/IAlpaca.sol';
 
 contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   using SafeERC20 for IERC20;
@@ -33,6 +34,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   uint256 public feeAmount;
   address public venusToken;
   uint256 public feePrecision;
+  address public alpacaToken;
 
   mapping (address => uint256) depositedAmount;
 
@@ -40,7 +42,8 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       NONE,
       FULCRUM,
       FORTUBE,
-      VENUS
+      VENUS,
+      ALPACA
   }
 
   Lender public provider = Lender.NONE;
@@ -53,6 +56,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     fortubeBank = address(0x0cEA0832e9cdBb5D476040D58Ea07ecfbeBB7672);
     feeAddress = address(0x143afc138978Ad681f7C7571858FAAA9D426CecE);
     venusToken = address(0x95c78222B3D6e262426483D42CfA53685A67Ab9D);
+    alpacaToken = address(0x7C9e73d4C71dae564d41F78d56439bB4ba87592f);
     feeAmount = 0;
     feePrecision = 1000;
     approveToken();
@@ -70,6 +74,8 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       feeAddress = _new_fee_address;
   }
   function set_new_feePrecision(uint256 _newFeePrecision) public onlyOwner{
+    assert(_newFeePrecision >= 100);
+    set_new_feeAmount(feeAmount*_newFeePrecision/feePrecision);
     feePrecision = _newFeePrecision;
   }
   // Quick swap low gas method for pool swaps
@@ -144,7 +150,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   receive() external payable {}
 
   function recommend() public returns (Lender) {
-    (uint256 fapr, uint256 ftapr, uint256 vapr) = IIEarnManager(apr).recommend(token);
+    (uint256 fapr, uint256 ftapr, uint256 vapr, uint256 aapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
       max = fapr;
@@ -155,6 +161,9 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     if (vapr > max) {
       max = vapr;
     }
+    if (aapr > max) {
+      max = aapr;
+    }
     Lender newProvider = Lender.NONE;
     if (max == fapr) {
       newProvider = Lender.FULCRUM;
@@ -162,6 +171,8 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       newProvider = Lender.FORTUBE;
     } else if (max == vapr) {
       newProvider = Lender.VENUS;
+    } else if (max == aapr) {
+      newProvider = Lender.ALPACA;
     }
     return newProvider;
   }
@@ -178,6 +189,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       IERC20(token).approve(fulcrum, uint(-1));
       IERC20(token).approve(FortubeBank(fortubeBank).controller(),  uint(-1));
       IERC20(token).approve(venusToken, uint(-1));
+      IERC20(token).approve(alpacaToken, uint(-1));
   }
   function balanceFortubeInToken() public view returns (uint256) {
     uint256 b = balanceFortube();
@@ -206,6 +218,14 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     return b;
   }
 
+  function balanceAlpacaInToken() public view returns (uint256) {
+    uint256 b = balanceAlpaca();
+    if (b > 0) {
+      b = IAlpaca(alpacaToken).debtShareToVal(b);
+    }
+    return b;
+  }
+
   function balanceFulcrum() public view returns (uint256) {
     return IERC20(fulcrum).balanceOf(address(this));
   }
@@ -214,6 +234,10 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
   function balanceVenus() public view returns (uint256) {
     return IERC20(venusToken).balanceOf(address(this));
+  }
+
+  function balanceAlpaca() public view returns (uint256) {
+    return IAlpaca(alpacaToken).balanceOf(address(this));
   }
 
   function _balance() internal view returns (uint256) {
@@ -247,6 +271,14 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     return b;
   }
 
+  function _balanceAlpacaInToken() internal view returns (uint256) {
+    uint256 b = balanceAlpaca();
+    if (b > 0) {
+      b = IAlpaca(alpacaToken).debtShareToVal(b);
+    }
+    return b;
+  }
+
   function _balanceFulcrum() internal view returns (uint256) {
     return IERC20(fulcrum).balanceOf(address(this));
   }
@@ -255,6 +287,10 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
   function _balanceVenus() internal view returns (uint256) {
     return IERC20(venusToken).balanceOf(address(this));
+  }
+
+  function _balanceAlpaca() public view returns (uint256) {
+    return IAlpaca(alpacaToken).balanceOf(address(this));
   }
 
   function _withdrawAll() internal {
@@ -269,6 +305,10 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     amount = _balanceVenus();
     if (amount > 0) {
       _withdrawVenus(amount);
+    }
+    amount = _balanceAlpaca();
+    if (amount > 0) {
+      _withdrawAlpaca(amount);
     }
   }
 
@@ -298,6 +338,14 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     _withdrawVenus(amount);
   }
 
+  function _withdrawSomeAlpaca(uint256 _amount) internal {
+    uint256 b = balanceAlpaca();
+    uint256 bT = _balanceAlpacaInToken();
+    require(bT >= _amount, "insufficient funds");
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    _withdrawAlpaca(amount);
+  }
+
   function _withdrawSome(uint256 _amount) internal {
     if (provider == Lender.FULCRUM) {
       _withdrawSomeFulcrum(_amount);
@@ -307,6 +355,9 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     }
     if (provider == Lender.VENUS) {
       _withdrawSomeVenus(_amount);
+    }
+    if (provider == Lender.ALPACA) {
+      _withdrawSomeAlpaca(_amount);
     }
   }
 
@@ -324,6 +375,8 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
         supplyFortube(balance());
       } else if (newProvider == Lender.VENUS) {
         supplyVenus(balance());
+      } else if (newProvider == Lender.ALPACA) {
+        supplyAlpaca(balance());
       }
     }
 
@@ -339,6 +392,8 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
         supplyFortube(_balance());
       } else if (newProvider == Lender.VENUS) {
         supplyVenus(_balance());
+      } else if (newProvider == Lender.ALPACA) {
+        supplyAlpaca(_balance());
       }
     }
     provider = newProvider;
@@ -355,6 +410,10 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       require(amount > 0, "VENUS: supply failed");
       IVenus(venusToken).mint(amount);
   }
+  function supplyAlpaca(uint amount) public {
+      require(amount > 0, "ALPACA: supply failed");
+      IAlpaca(alpacaToken).deposit(amount);
+  }
   function _withdrawFulcrum(uint amount) internal {
       require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");
   }
@@ -366,11 +425,16 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       require(amount > 0, "VENUS: withdraw failed");
       IVenus(venusToken).redeem(amount);
   }
+  function _withdrawAlpaca(uint amount) internal {
+      require(amount > 0, "ALPACA: withdraw failed");
+      IAlpaca(alpacaToken).withdraw(amount);
+  }
 
   function _calcPoolValueInToken() internal view returns (uint) {
     return _balanceFulcrumInToken()
       .add(_balanceFortubeInToken())
       .add(_balanceVenusInToken())
+      .add(_balanceAlpacaInToken())
       .add(_balance());
   }
 
@@ -379,6 +443,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     return balanceFulcrumInToken()
       .add(balanceFortubeInToken())
       .add(balanceVenusInToken())
+      .add(balanceAlpacaInToken())
       .add(balance());
   }
 
