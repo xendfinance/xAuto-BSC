@@ -11,8 +11,8 @@ interface IAPRWithPoolOracle {
 
   function getFulcrumAPRAdjusted(address token, uint256 _supply) external view returns(uint256);
   function getFortubeAPRAdjusted(address token) external view returns (uint256);
-  function calcVenusAPR(address token) external returns(bool);
-  function getVenusAPRAdjusted() external view returns (uint256);
+  // function calcVenusAPR(address token) external returns(bool);
+  function getVenusAPRAdjusted(address token) external view returns (uint256);
   function getAlpacaAPRAdjusted(address token) external view returns (uint256);
 
 }
@@ -34,23 +34,26 @@ contract EarnAPRWithPool is Ownable {
         APR = address(0x0bCf5B3603fe34428Ac460C52674F12517d7C9aE);
 
         addFToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0x7343b25c4953f4C57ED4D16c33cbEDEFAE9E8Eb9); //fBUSD
-        addFToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, 0xf326b42A237086F1De4E7D68F2d2456fC787bc01); //fUSDT
-        // addFToken(0x55d398326f99059fF775485246999027B3197955, 0x2E1A74a16e3a9F8e3d825902Ab9fb87c606cB13f); //fUSDC
+        addFToken(0x55d398326f99059fF775485246999027B3197955, 0xf326b42A237086F1De4E7D68F2d2456fC787bc01); //fUSDT
+        addFToken(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0x49646513609085f39D9e44b413c74530Ba6E2c0F); //fBNB
 
         addFTToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0x57160962Dc107C8FBC2A619aCA43F79Fd03E7556); //ftBUSD
-        addFTToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, 0xBf9213D046C2c1e6775dA2363fC47F10C4471255); //ftUSDT
-        addFTToken(0x55d398326f99059fF775485246999027B3197955, 0xb2CB0Af60372E242710c42e1C34579178c3D2BED); //ftUSDC
+        addFTToken(0x55d398326f99059fF775485246999027B3197955, 0xBf9213D046C2c1e6775dA2363fC47F10C4471255); //ftUSDT
+        addFTToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, 0xb2CB0Af60372E242710c42e1C34579178c3D2BED); //ftUSDC
+        addFTToken(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0xf330b39f74e7f71ab9604A5307690872b8125aC8); //ftBNB
 
         addVToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0x95c78222B3D6e262426483D42CfA53685A67Ab9D); //vBUSD 2
-        addVToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, 0xfD5840Cd36d94D7229439859C0112a4185BC0255); //vUSDT 1
-        addVToken(0x55d398326f99059fF775485246999027B3197955, 0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8); //vUSDC 0
+        addVToken(0x55d398326f99059fF775485246999027B3197955, 0xfD5840Cd36d94D7229439859C0112a4185BC0255); //vUSDT 1
+        addVToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, 0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8); //vUSDC 0
+        addVToken(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0xA07c5b74C9B40447a954e1466938b865b6BBea36); //vBNB
 
         addAToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0x7C9e73d4C71dae564d41F78d56439bB4ba87592f); //aBUSD
-        addAToken(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d, 0x158Da805682BdC8ee32d52833aD41E74bb951E59); //aUSDT
+        addAToken(0x55d398326f99059fF775485246999027B3197955, 0x158Da805682BdC8ee32d52833aD41E74bb951E59); //aUSDT
+        addAToken(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0xd7D069493685A581d27824Fc46EdA46B7EfC0063); //aBNB
     }
 
     // Wrapper for legacy v1 token support
-    function recommend(address _token) public returns (
+    function recommend(address _token) public view returns (
       uint256 _fulcrum,
       uint256 _fortube,
       uint256 _venus,
@@ -68,8 +71,8 @@ contract EarnAPRWithPool is Ownable {
       }
       addr = venus[_token];
       if (addr != address(0)) {
-        IAPRWithPoolOracle(APR).calcVenusAPR(addr);
-        _venus = IAPRWithPoolOracle(APR).getVenusAPRAdjusted();
+        // IAPRWithPoolOracle(APR).calcVenusAPR(addr);
+        _venus = IAPRWithPoolOracle(APR).getVenusAPRAdjusted(addr);
       }
       addr = alpaca[_token];
       if (addr != address(0)) {

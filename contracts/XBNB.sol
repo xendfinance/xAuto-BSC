@@ -13,17 +13,20 @@ import "./libraries/Ownable.sol";
 import './libraries/TokenStructs.sol';
 import './interfaces/FortubeToken.sol';
 import './interfaces/FortubeBank.sol';
+import './interfaces/Fulcrum.sol';
 import './interfaces/IIEarnManager.sol';
 import './interfaces/ITreasury.sol';
 import './interfaces/IVenus.sol';
+import './interfaces/IAlpaca.sol';
 
-contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
+contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   using SafeERC20 for IERC20;
   using Address for address;
   using SafeMath for uint256;
 
   uint256 public pool;
   address public token;
+  address public fulcrum;
   address public apr;
   address public fortubeToken;
   address public fortubeBank;
@@ -31,25 +34,29 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   uint256 public feeAmount;
   address public venusToken;
   uint256 public feePrecision;
+  address public alpacaToken;
 
   mapping (address => uint256) depositedAmount;
 
   enum Lender {
       NONE,
+      FULCRUM,
       FORTUBE,
-      VENUS
+      VENUS,
+      ALPACA
   }
 
   Lender public provider = Lender.NONE;
 
-  constructor () public ERC20("xend USDC", "xUSDC") {
-
-    token = address(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d);
+  constructor () public ERC20("xend BUSD", "xBUSD") {
+    token = address(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    fortubeToken = address(0xb2CB0Af60372E242710c42e1C34579178c3D2BED);
+    fulcrum = address(0x7343b25c4953f4C57ED4D16c33cbEDEFAE9E8Eb9);
+    fortubeToken = address(0x57160962Dc107C8FBC2A619aCA43F79Fd03E7556);
     fortubeBank = address(0x0cEA0832e9cdBb5D476040D58Ea07ecfbeBB7672);
     feeAddress = address(0x143afc138978Ad681f7C7571858FAAA9D426CecE);
-    venusToken = address(0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8);
+    venusToken = address(0x95c78222B3D6e262426483D42CfA53685A67Ab9D);
+    alpacaToken = address(0x7C9e73d4C71dae564d41F78d56439bB4ba87592f);
     feeAmount = 0;
     feePrecision = 1000;
     approveToken();
@@ -143,7 +150,7 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   receive() external payable {}
 
   function recommend() public view returns (Lender) {
-    (uint256 fapr, uint256 ftapr, uint256 vapr,) = IIEarnManager(apr).recommend(token);
+    (uint256 fapr, uint256 ftapr, uint256 vapr, uint256 aapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
       max = fapr;
@@ -154,11 +161,18 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     if (vapr > max) {
       max = vapr;
     }
+    if (aapr > max) {
+      max = aapr;
+    }
     Lender newProvider = Lender.NONE;
-    if (max == ftapr) {
+    if (max == fapr) {
+      newProvider = Lender.FULCRUM;
+    } else if (max == ftapr) {
       newProvider = Lender.FORTUBE;
     } else if (max == vapr) {
       newProvider = Lender.VENUS;
+    } else if (max == aapr) {
+      newProvider = Lender.ALPACA;
     }
     return newProvider;
   }
@@ -172,8 +186,10 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function approveToken() public {
+      IERC20(token).approve(fulcrum, uint(-1));
       IERC20(token).approve(FortubeBank(fortubeBank).controller(),  uint(-1));
       IERC20(token).approve(venusToken, uint(-1));
+      IERC20(token).approve(alpacaToken, uint(-1));
   }
   function balanceFortubeInToken() public view returns (uint256) {
     uint256 b = balanceFortube();
@@ -184,6 +200,15 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     }
     return b;
   }
+
+  function balanceFulcrumInToken() public view returns (uint256) {
+    uint256 b = balanceFulcrum();
+    if (b > 0) {
+      b = Fulcrum(fulcrum).assetBalanceOf(address(this));
+    }
+    return b;
+  }
+
   function balanceVenusInToken() public view returns (uint256) {
     uint256 b = balanceVenus();
     if (b > 0) {
@@ -193,6 +218,17 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     return b;
   }
 
+  function balanceAlpacaInToken() public view returns (uint256) {
+    uint256 b = balanceAlpaca();
+    if (b > 0) {
+      b = IAlpaca(alpacaToken).debtShareToVal(b);
+    }
+    return b;
+  }
+
+  function balanceFulcrum() public view returns (uint256) {
+    return IERC20(fulcrum).balanceOf(address(this));
+  }
   function balanceFortube() public view returns (uint256) {
     return FortubeToken(fortubeToken).balanceOf(address(this));
   }
@@ -200,8 +236,20 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     return IERC20(venusToken).balanceOf(address(this));
   }
 
+  function balanceAlpaca() public view returns (uint256) {
+    return IAlpaca(alpacaToken).balanceOf(address(this));
+  }
+
   function _balance() internal view returns (uint256) {
     return IERC20(token).balanceOf(address(this));
+  }
+
+  function _balanceFulcrumInToken() internal view returns (uint256) {
+    uint256 b = balanceFulcrum();
+    if (b > 0) {
+      b = Fulcrum(fulcrum).assetBalanceOf(address(this));
+    }
+    return b;
   }
 
   function _balanceFortubeInToken() internal view returns (uint256) {
@@ -221,7 +269,18 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       b = b.mul(exchangeRate).div(10**28);
     }
     return b;
+  }
 
+  function _balanceAlpacaInToken() internal view returns (uint256) {
+    uint256 b = balanceAlpaca();
+    if (b > 0) {
+      b = IAlpaca(alpacaToken).debtShareToVal(b);
+    }
+    return b;
+  }
+
+  function _balanceFulcrum() internal view returns (uint256) {
+    return IERC20(fulcrum).balanceOf(address(this));
   }
   function _balanceFortube() internal view returns (uint256) {
     return IERC20(fortubeToken).balanceOf(address(this));
@@ -230,8 +289,16 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     return IERC20(venusToken).balanceOf(address(this));
   }
 
+  function _balanceAlpaca() public view returns (uint256) {
+    return IAlpaca(alpacaToken).balanceOf(address(this));
+  }
+
   function _withdrawAll() internal {
-    uint256  amount = _balanceFortube();
+    uint256  amount = _balanceFulcrum();
+    if (amount > 0) {
+      _withdrawFulcrum(amount);
+    }
+    amount = _balanceFortube();
     if (amount > 0) {
       _withdrawFortube(amount);
     }
@@ -239,6 +306,20 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     if (amount > 0) {
       _withdrawVenus(amount);
     }
+    amount = _balanceAlpaca();
+    if (amount > 0) {
+      _withdrawAlpaca(amount);
+    }
+  }
+
+  function _withdrawSomeFulcrum(uint256 _amount) internal {
+    uint256 b = balanceFulcrum();
+    // Balance of token in fulcrum
+    uint256 bT = balanceFulcrumInToken();
+    require(bT >= _amount, "insufficient funds");
+    // can have unintentional rounding errors
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    _withdrawFulcrum(amount);
   }
 
   function _withdrawSomeFortube(uint256 _amount) internal {
@@ -249,7 +330,7 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     _withdrawFortube(amount);
   }
 
-function _withdrawSomeVenus(uint256 _amount) internal {
+  function _withdrawSomeVenus(uint256 _amount) internal {
     uint256 b = balanceVenus();
     uint256 bT = _balanceVenusInToken();
     require(bT >= _amount, "insufficient funds");
@@ -257,13 +338,26 @@ function _withdrawSomeVenus(uint256 _amount) internal {
     _withdrawVenus(amount);
   }
 
+  function _withdrawSomeAlpaca(uint256 _amount) internal {
+    uint256 b = balanceAlpaca();
+    uint256 bT = _balanceAlpacaInToken();
+    require(bT >= _amount, "insufficient funds");
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    _withdrawAlpaca(amount);
+  }
+
   function _withdrawSome(uint256 _amount) internal {
-    
+    if (provider == Lender.FULCRUM) {
+      _withdrawSomeFulcrum(_amount);
+    }
     if (provider == Lender.FORTUBE) {
       _withdrawSomeFortube(_amount);
     }
     if (provider == Lender.VENUS) {
       _withdrawSomeVenus(_amount);
+    }
+    if (provider == Lender.ALPACA) {
+      _withdrawSomeAlpaca(_amount);
     }
   }
 
@@ -275,10 +369,14 @@ function _withdrawSomeVenus(uint256 _amount) internal {
     }
 
     if (balance() > 0) {
-      if (newProvider == Lender.FORTUBE) {
+      if (newProvider == Lender.FULCRUM) {
+        supplyFulcrum(balance());
+      } else if (newProvider == Lender.FORTUBE) {
         supplyFortube(balance());
       } else if (newProvider == Lender.VENUS) {
         supplyVenus(balance());
+      } else if (newProvider == Lender.ALPACA) {
+        supplyAlpaca(balance());
       }
     }
 
@@ -288,15 +386,22 @@ function _withdrawSomeVenus(uint256 _amount) internal {
   // Internal only rebalance for better gas in redeem
   function _rebalance(Lender newProvider) internal {
     if (_balance() > 0) {
-      if (newProvider == Lender.FORTUBE) {
+      if (newProvider == Lender.FULCRUM) {
+        supplyFulcrum(_balance());
+      } else if (newProvider == Lender.FORTUBE) {
         supplyFortube(_balance());
       } else if (newProvider == Lender.VENUS) {
         supplyVenus(_balance());
+      } else if (newProvider == Lender.ALPACA) {
+        supplyAlpaca(_balance());
       }
     }
     provider = newProvider;
   }
 
+  function supplyFulcrum(uint amount) public {
+      require(Fulcrum(fulcrum).mint(address(this), amount) > 0, "FULCRUM: supply failed");
+  }
   function supplyFortube(uint amount) public {
       require(amount > 0, "FORTUBE: supply failed");
       FortubeBank(fortubeBank).deposit(token, amount);
@@ -304,6 +409,13 @@ function _withdrawSomeVenus(uint256 _amount) internal {
   function supplyVenus(uint amount) public {
       require(amount > 0, "VENUS: supply failed");
       IVenus(venusToken).mint(amount);
+  }
+  function supplyAlpaca(uint amount) public {
+      require(amount > 0, "ALPACA: supply failed");
+      IAlpaca(alpacaToken).deposit(amount);
+  }
+  function _withdrawFulcrum(uint amount) internal {
+      require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");
   }
   function _withdrawFortube(uint amount) internal {
       require(amount > 0, "FORTUBE: withdraw failed");
@@ -313,16 +425,25 @@ function _withdrawSomeVenus(uint256 _amount) internal {
       require(amount > 0, "VENUS: withdraw failed");
       IVenus(venusToken).redeem(amount);
   }
+  function _withdrawAlpaca(uint amount) internal {
+      require(amount > 0, "ALPACA: withdraw failed");
+      IAlpaca(alpacaToken).withdraw(amount);
+  }
+
   function _calcPoolValueInToken() internal view returns (uint) {
-    return _balanceFortubeInToken()
+    return _balanceFulcrumInToken()
+      .add(_balanceFortubeInToken())
       .add(_balanceVenusInToken())
+      .add(_balanceAlpacaInToken())
       .add(_balance());
   }
 
   function calcPoolValueInToken() public view returns (uint) {
 
-    return balanceFortubeInToken()
+    return balanceFulcrumInToken()
+      .add(balanceFortubeInToken())
       .add(balanceVenusInToken())
+      .add(balanceAlpacaInToken())
       .add(balance());
   }
 
