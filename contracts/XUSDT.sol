@@ -151,7 +151,7 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   receive() external payable {}
 
-  function recommend() public returns (Lender) {
+  function recommend() public view returns (Lender) {
     (uint256 fapr, uint256 ftapr, uint256 vapr, uint256 aapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
