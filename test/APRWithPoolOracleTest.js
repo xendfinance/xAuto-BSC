@@ -3,21 +3,21 @@ const { expect } = require('chai');
 
 const APRWithPoolOracle = artifacts.require('APRWithPoolOracle')
 const EarnAPRWithPool = artifacts.require('EarnAPRWithPool')
-const XBUSD = artifacts.require('XBUSD')
-const ForceSend = artifacts.require('ForceSend');
-const busdABI = require('./abi/busd');
+// const XBUSD = artifacts.require('XBUSD')
+// const ForceSend = artifacts.require('ForceSend');
+// const busdABI = require('./abi/busd');
 
-const busdAddress = '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56';
-const busdContract = new web3.eth.Contract(busdABI, busdAddress);
-const busdOwner = '0x468c0cfae487a9de23e20d0b29a2835dc058cdf7';
+// const busdAddress = '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56';
+// const busdContract = new web3.eth.Contract(busdABI, busdAddress);
+// const busdOwner = '0x468c0cfae487a9de23e20d0b29a2835dc058cdf7';
 
-contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
+contract('test APRWithPoolOracle', async([alice, bob, admin, dev, minter]) => {
 
     before(async () => {
 
-        this.xbusdContract = await XBUSD.new({
-            from: alice
-        });
+        // this.xbusdContract = await XBUSD.new({
+        //     from: alice
+        // });
         this.aprWithPoolOracle = await APRWithPoolOracle.new({
             from: alice
         });
@@ -46,9 +46,13 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         let earnAPRWithPool = this.earnAPRWithPool;
         // let xbusd = this.xbusdContract;
         await earnAPRWithPool.set_new_APR(aprWithPoolOracle.address)
-        console.log(await earnAPRWithPool.APR());
+        // console.log(await earnAPRWithPool.APR());
         let result = await earnAPRWithPool.recommend('0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56');
-        console.log(result.toString());
+        // let result = await earnAPRWithPool.recommend('0x55d398326f99059fF775485246999027B3197955');
+        // let result = await earnAPRWithPool.recommend('0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d');
+        // let result = await earnAPRWithPool.recommend('0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c');
+        
+        // console.log(result.toString());
         console.log(result['_fulcrum'].toString());
         console.log(result['_fortube'].toString());
         console.log(result['_venus'].toString());
