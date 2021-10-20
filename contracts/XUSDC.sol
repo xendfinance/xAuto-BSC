@@ -98,7 +98,7 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       emit Deposit(msg.sender, _amount);
   }
 
-  // No rebalance implementation for lower fees and faster swaps
+  
   function withdraw(uint256 _shares)
       external
       nonReentrant
@@ -299,7 +299,7 @@ function _withdrawSomeVenus(uint256 _amount) internal {
 
   function supplyFortube(uint amount) public {
       require(amount > 0, "FORTUBE: supply failed");
-      FortubeBank(fortubeBank).deposit(token, amount);
+      FortubeBank(fortubeBank).deposit(FortubeToken(fortubeToken).underlying(), amount);
   }
   function supplyVenus(uint amount) public {
       require(amount > 0, "VENUS: supply failed");
@@ -307,7 +307,7 @@ function _withdrawSomeVenus(uint256 _amount) internal {
   }
   function _withdrawFortube(uint amount) internal {
       require(amount > 0, "FORTUBE: withdraw failed");
-      FortubeBank(fortubeBank).withdraw(token, amount);
+      FortubeBank(fortubeBank).withdraw(FortubeToken(fortubeToken).underlying(), amount);
   }
   function _withdrawVenus(uint amount) internal {
       require(amount > 0, "VENUS: withdraw failed");

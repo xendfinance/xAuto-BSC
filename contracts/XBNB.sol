@@ -16,10 +16,16 @@ import './interfaces/FortubeBank.sol';
 import './interfaces/Fulcrum.sol';
 import './interfaces/IIEarnManager.sol';
 import './interfaces/ITreasury.sol';
-import './interfaces/IVenus.sol';
 import './interfaces/IAlpaca.sol';
 
-contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
+interface IVenus {
+    function balanceOf(address _owner) external view returns (uint256 balance);
+    function mint() external payable;
+    function redeem(uint redeemTokens) external returns(uint);
+    function exchangeRateStored() external view returns (uint256);
+}
+
+contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   using SafeERC20 for IERC20;
   using Address for address;
   using SafeMath for uint256;
@@ -48,18 +54,18 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   Lender public provider = Lender.NONE;
 
-  constructor () public ERC20("xend BUSD", "xBUSD") {
-    token = address(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56);
+  constructor () public ERC20("xend BNB", "xBNB") {
+    token = address(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
     apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    fulcrum = address(0x7343b25c4953f4C57ED4D16c33cbEDEFAE9E8Eb9);
-    fortubeToken = address(0x57160962Dc107C8FBC2A619aCA43F79Fd03E7556);
+    fulcrum = address(0x49646513609085f39D9e44b413c74530Ba6E2c0F);
+    fortubeToken = address(0xf330b39f74e7f71ab9604A5307690872b8125aC8);
     fortubeBank = address(0x0cEA0832e9cdBb5D476040D58Ea07ecfbeBB7672);
     feeAddress = address(0x143afc138978Ad681f7C7571858FAAA9D426CecE);
-    venusToken = address(0x95c78222B3D6e262426483D42CfA53685A67Ab9D);
-    alpacaToken = address(0x7C9e73d4C71dae564d41F78d56439bB4ba87592f);
+    venusToken = address(0xA07c5b74C9B40447a954e1466938b865b6BBea36);
+    alpacaToken = address(0xd7D069493685A581d27824Fc46EdA46B7EfC0063);
     feeAmount = 0;
     feePrecision = 1000;
-    approveToken();
+    // approveToken();
   }
 
   // Ownable setters incase of support in future for these systems
@@ -79,13 +85,15 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     feePrecision = _newFeePrecision;
   }
   // Quick swap low gas method for pool swaps
-  function deposit(uint256 _amount)
+  function deposit()
       external
+      payable
       nonReentrant
   {
-      require(_amount > 0, "deposit must be greater than 0");
-      pool = _calcPoolValueInToken();
-      IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
+      uint256 _amount = msg.value;
+      require(_amount > 0, "deposit must be greater than 0");      
+      pool = _calcPoolValueInToken().sub(_amount);
+      
       rebalance();
       // Calculate pool shares
       uint256 shares = 0;
@@ -105,7 +113,6 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       emit Deposit(msg.sender, _amount);
   }
 
-  // No rebalance implementation for lower fees and faster swaps
   function withdraw(uint256 _shares)
       external
       nonReentrant
@@ -129,17 +136,20 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       emit Transfer(msg.sender, address(0), _shares);
 
       // Check balance
-      uint256 b = IERC20(token).balanceOf(address(this));
+      // uint256 b = IERC20(token).balanceOf(address(this));
+      uint256 b = address(this).balance;
       if (b < r) {
         _withdrawSome(r.sub(b));
       }
-
+      bool success;
       uint256 fee = profit.mul(feeAmount).div(feePrecision);
       if(fee > 0){
-        IERC20(token).approve(feeAddress, fee);
-        ITreasury(feeAddress).depositToken(token);
+        (success,) = payable(feeAddress).call{value: fee}("");
+        require(success, "Failed to send BNB");
       }
-      IERC20(token).safeTransfer(msg.sender, r.sub(fee));
+      (success,) = payable(msg.sender).call{value: r.sub(fee)}("");
+      require(success, "Failed to send BNB");
+
       _burn(msg.sender, _shares);
       depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(_shares.mul(depositedAmount[msg.sender]).div(ibalance));
       rebalance();
@@ -178,19 +188,13 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function balance() public view returns (uint256) {
-    return IERC20(token).balanceOf(address(this));
+    return address(this).balance;
   }
 
   function getDepositedAmount(address investor) public view returns (uint256) {
     return depositedAmount[investor];
   }
 
-  function approveToken() public {
-      IERC20(token).approve(fulcrum, uint(-1));
-      IERC20(token).approve(FortubeBank(fortubeBank).controller(),  uint(-1));
-      IERC20(token).approve(venusToken, uint(-1));
-      IERC20(token).approve(alpacaToken, uint(-1));
-  }
   function balanceFortubeInToken() public view returns (uint256) {
     uint256 b = balanceFortube();
     if (b > 0) {
@@ -241,7 +245,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function _balance() internal view returns (uint256) {
-    return IERC20(token).balanceOf(address(this));
+    return address(this).balance;
   }
 
   function _balanceFulcrumInToken() internal view returns (uint256) {
@@ -318,7 +322,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     uint256 bT = balanceFulcrumInToken();
     require(bT >= _amount, "insufficient funds");
     // can have unintentional rounding errors
-    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    uint256 amount = (b.mul(_amount)).div(bT);
     _withdrawFulcrum(amount);
   }
 
@@ -326,7 +330,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     uint256 b = balanceFortube();
     uint256 bT = balanceFortubeInToken();
     require(bT >= _amount, "insufficient funds");
-    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    uint256 amount = (b.mul(_amount)).div(bT);
     _withdrawFortube(amount);
   }
 
@@ -334,7 +338,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     uint256 b = balanceVenus();
     uint256 bT = _balanceVenusInToken();
     require(bT >= _amount, "insufficient funds");
-    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    uint256 amount = (b.mul(_amount)).div(bT);
     _withdrawVenus(amount);
   }
 
@@ -342,7 +346,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     uint256 b = balanceAlpaca();
     uint256 bT = _balanceAlpacaInToken();
     require(bT >= _amount, "insufficient funds");
-    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    uint256 amount = (b.mul(_amount)).div(bT);
     _withdrawAlpaca(amount);
   }
 
@@ -400,26 +404,26 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function supplyFulcrum(uint amount) public {
-      require(Fulcrum(fulcrum).mint(address(this), amount) > 0, "FULCRUM: supply failed");
+    require(Fulcrum(fulcrum).mintWithEther{value: amount}(address(this)) > 0, "FULCRUM: supply failed");
   }
   function supplyFortube(uint amount) public {
       require(amount > 0, "FORTUBE: supply failed");
-      FortubeBank(fortubeBank).deposit(token, amount);
+      FortubeBank(fortubeBank).deposit{value: amount}(FortubeToken(fortubeToken).underlying(), amount);
   }
   function supplyVenus(uint amount) public {
       require(amount > 0, "VENUS: supply failed");
-      IVenus(venusToken).mint(amount);
+      IVenus(venusToken).mint{value: amount}();
   }
   function supplyAlpaca(uint amount) public {
       require(amount > 0, "ALPACA: supply failed");
-      IAlpaca(alpacaToken).deposit(amount);
+      IAlpaca(alpacaToken).deposit{value: amount}(amount);
   }
   function _withdrawFulcrum(uint amount) internal {
-      require(Fulcrum(fulcrum).burn(address(this), amount) > 0, "FULCRUM: withdraw failed");
+      require(Fulcrum(fulcrum).burnToEther(address(this), amount) > 0, "FULCRUM: withdraw failed");
   }
   function _withdrawFortube(uint amount) internal {
       require(amount > 0, "FORTUBE: withdraw failed");
-      FortubeBank(fortubeBank).withdraw(token, amount);
+      FortubeBank(fortubeBank).withdraw(FortubeToken(fortubeToken).underlying(), amount);
   }
   function _withdrawVenus(uint amount) internal {
       require(amount > 0, "VENUS: withdraw failed");

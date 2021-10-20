@@ -31,6 +31,7 @@ interface IAlpaca {
   function balanceOf(address _token) external view returns (uint256);
   function debtShareToVal(uint256 _amount) external view returns (uint256);
   function fairLaunchPoolId() external view returns (uint256);
+  function token() external view returns (address);
 }
 
 interface IAlpacaFairLaunch {
@@ -84,17 +85,17 @@ contract APRWithPoolOracle is Ownable {
       return 0;
     else{
       IFortube fortube = IFortube(token);
-      return fortube.APY().mul(100);
+      return fortube.APY();
     }
   }
 
   function getVenusAPRAdjusted(address token) external view returns (uint256) {
     uint256 supplyRatePerBlock = IVenus(token).supplyRatePerBlock();
-    int128 _temp = ABDKMath64x64.add(ABDKMath64x64.mul(ABDKMath64x64.divu(supplyRatePerBlock, 1000000000000000000),ABDKMath64x64.fromUInt(20*60*24)),ABDKMath64x64.fromUInt(1));
-    return ABDKMath64x64.toUInt(ABDKMath64x64.sub(ABDKMath64x64.pow(_temp, 365),ABDKMath64x64.fromUInt(1)) * 10**18);
+    int128 _temp = ABDKMath64x64.add(ABDKMath64x64.mul(ABDKMath64x64.divu(supplyRatePerBlock, 1e18),ABDKMath64x64.fromUInt(20*60*24)),ABDKMath64x64.fromUInt(1));
+    return ABDKMath64x64.toUInt(ABDKMath64x64.sub(ABDKMath64x64.pow(_temp, 365),ABDKMath64x64.fromUInt(1)) * 1e18)*1e2;
   }
 
-  function getAlpacaAPRAdjusted(address token) public returns(uint256) { //3, 16, 1
+  function getAlpacaAPRAdjusted(address token) external view returns(uint256) {
     if(token == address(0))
       return 0;
     else{
@@ -108,24 +109,27 @@ contract APRWithPoolOracle is Ownable {
       uint256 stakingApr = 0;
       {
         (, uint256 allocPoint, , ,) = fairLaunch.poolInfo(tokenIndex);
-        uint256 alpacaTokenPrice = priceCheck(fairLaunch.alpaca(), usdtTokenAddress, 10**18);
+        uint256 alpacaTokenPrice = priceCheck(fairLaunch.alpaca(), usdtTokenAddress, 1e18);
+        uint256 tokenPrice = priceCheck(alpaca.token(), usdtTokenAddress, 1e18);
         uint256 perBlock = fairLaunch.alpacaPerBlock();
         uint256 totalAllocPoint = fairLaunch.totalAllocPoint();
-        stakingApr = perBlock * allocPoint / totalAllocPoint * 20 * 60 * 24 * 365 / 10 ** 18 * alpacaTokenPrice / (alpaca.balanceOf(fairLaunchAddr) / 10**18)*10*4/alpaca.debtShareToVal(10*4);
+        uint256 debtShareToVal = alpaca.debtShareToVal(1e4);
+        stakingApr = perBlock * allocPoint / totalAllocPoint * 20 * 60 * 24 * 365 / 1e18 * alpacaTokenPrice / (alpaca.balanceOf(fairLaunchAddr) / 1e18);
+        stakingApr = stakingApr.mul(1e4).div(debtShareToVal).mul(1e18).div(tokenPrice);
       }
       uint256 apr = lendingApr + stakingApr;
-      // return apr;
       return 
         ABDKMath64x64.mulu(
           ABDKMath64x64.sub(
-            ABDKMath64x64.exp(ABDKMath64x64.div(ABDKMath64x64.fromUInt(apr), ABDKMath64x64.fromUInt(1000000000000000000))),
+            ABDKMath64x64.exp(ABDKMath64x64.div(ABDKMath64x64.fromUInt(apr), ABDKMath64x64.fromUInt(1e18))),
             ABDKMath64x64.fromUInt(1)
           ),
-          1000000000000000000
-        );
-      // return ABDKMath64x64.div(ABDKMath64x64.fromUInt(apr), ABDKMath64x64.fromUInt(1000000000000000000));
+          1e18
+        )*1e2;
     }
   }
+
+  
   function priceCheck(address start, address end, uint256 _amount) public view returns (uint256) {
     if (_amount == 0) {
       return 0;

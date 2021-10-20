@@ -105,7 +105,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       emit Deposit(msg.sender, _amount);
   }
 
-  // No rebalance implementation for lower fees and faster swaps
+  
   function withdraw(uint256 _shares)
       external
       nonReentrant
@@ -149,7 +149,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   receive() external payable {}
 
-  function recommend() public returns (Lender) {
+  function recommend() public view returns (Lender) {
     (uint256 fapr, uint256 ftapr, uint256 vapr, uint256 aapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (fapr > max) {
@@ -404,7 +404,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
   function supplyFortube(uint amount) public {
       require(amount > 0, "FORTUBE: supply failed");
-      FortubeBank(fortubeBank).deposit(token, amount);
+      FortubeBank(fortubeBank).deposit(FortubeToken(fortubeToken).underlying(), amount);
   }
   function supplyVenus(uint amount) public {
       require(amount > 0, "VENUS: supply failed");
@@ -419,7 +419,7 @@ contract xBUSD is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
   function _withdrawFortube(uint amount) internal {
       require(amount > 0, "FORTUBE: withdraw failed");
-      FortubeBank(fortubeBank).withdraw(token, amount);
+      FortubeBank(fortubeBank).withdraw(FortubeToken(fortubeToken).underlying(), amount);
   }
   function _withdrawVenus(uint amount) internal {
       require(amount > 0, "VENUS: withdraw failed");
