@@ -5,4 +5,5 @@ interface FortubeToken {
     function ONE() external view returns (uint256);
     function exchangeRateStored() external view returns (uint256);
     function underlying() external view returns (address);
+    function calcBalanceOfUnderlying(address _owner) external view returns (uint256);
 }

@@ -200,7 +200,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     if (b > 0) {
       uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
       uint256 oneAmount = FortubeToken(fortubeToken).ONE();
-      b = b.mul(exchangeRate).div(oneAmount);
+      b = b.mul(exchangeRate).div(oneAmount).add(1);
     }
     return b;
   }
@@ -217,7 +217,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     uint256 b = balanceVenus();
     if (b > 0) {
       uint256 exchangeRate = IVenus(venusToken).exchangeRateStored();
-      b = b.mul(exchangeRate).div(10**28);
+      b = b.mul(exchangeRate).div(1e28).add(1).mul(1e10);
     }
     return b;
   }
@@ -225,7 +225,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   function balanceAlpacaInToken() public view returns (uint256) {
     uint256 b = balanceAlpaca();
     if (b > 0) {
-      b = IAlpaca(alpacaToken).debtShareToVal(b);
+      b = b.mul(IAlpaca(alpacaToken).totalToken()).div(IAlpaca(alpacaToken).totalSupply()).add(1);
     }
     return b;
   }
@@ -249,6 +249,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function _balanceFulcrumInToken() internal view returns (uint256) {
+  
     uint256 b = balanceFulcrum();
     if (b > 0) {
       b = Fulcrum(fulcrum).assetBalanceOf(address(this));
@@ -261,7 +262,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     if (b > 0) {
       uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
       uint256 oneAmount = FortubeToken(fortubeToken).ONE();
-      b = b.mul(exchangeRate).div(oneAmount);
+      b = b.mul(exchangeRate).div(oneAmount).add(1);
     }
     return b;
   }
@@ -270,7 +271,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     uint256 b = balanceVenus();
     if (b > 0) {
       uint256 exchangeRate = IVenus(venusToken).exchangeRateStored();
-      b = b.mul(exchangeRate).div(10**28);
+      b = b.mul(exchangeRate).div(1e28).add(1).mul(1e10);
     }
     return b;
   }
@@ -278,7 +279,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   function _balanceAlpacaInToken() internal view returns (uint256) {
     uint256 b = balanceAlpaca();
     if (b > 0) {
-      b = IAlpaca(alpacaToken).debtShareToVal(b);
+      b = b.mul(IAlpaca(alpacaToken).totalToken()).div(IAlpaca(alpacaToken).totalSupply()).add(1);
     }
     return b;
   }

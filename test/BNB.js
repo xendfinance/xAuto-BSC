@@ -53,6 +53,7 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         let xbnb = this.xbnbContract;
         await earnAPRWithPool.set_new_APR(aprWithPoolOracle.address)
         await xbnb.set_new_APR(earnAPRWithPool.address)
+        await xbnb.set_new_fee_address(admin)
         // let balanceOfAlice = await bnbContract.methods.balanceOf(alice).call();
         // let balanceOfAlice = await xbnb.balance();
         let balance = await web3.eth.getBalance(alice);
@@ -74,5 +75,7 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         await xbnb.withdraw(tokenAmount, {from: alice});
         const currentBalance = await xbnb.balanceOf(alice);
         console.log('final_balance', currentBalance.toString());
+        balance = await web3.eth.getBalance(admin);
+        console.log('admin_balance', balance);
     })
 })
