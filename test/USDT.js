@@ -28,7 +28,8 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         const forceSend = await ForceSend.new();
         await forceSend.go(busdOwner, { value: ether('1') });
         
-        await busdContract.methods.transfer(alice, '10000000000').send({ from: busdOwner});
+        await busdContract.methods.transfer(alice, '1000000000000000000').send({ from: busdOwner});
+        await busdContract.methods.transfer(admin, '1000000000000000000').send({ from: busdOwner});
         console.log('---ended-before---');
     });
 
@@ -39,11 +40,17 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         await earnAPRWithPool.set_new_APR(aprWithPoolOracle.address)
         await xbusd.set_new_APR(earnAPRWithPool.address)
 
-        await busdContract.methods.approve(xbusd.address, 10000000).send({
+        await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
             from: alice
         });
 
-        await xbusd.deposit(10000000, {from: alice});
+        await xbusd.deposit('1000000000000000000', {from: alice});
+        await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
+            from: admin
+        });
+
+        await xbusd.deposit('1000000000000000000', {from: admin});
+
         const balance = await xbusd.balanceOf(alice);
         console.log('balance', balance.toString());
         const tokenAmount = await xbusd.balanceOf(alice);

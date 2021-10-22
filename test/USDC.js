@@ -28,7 +28,8 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         const forceSend = await ForceSend.new();
         await forceSend.go(usdcOwner, { value: ether('1') });
         
-        await usdcContract.methods.transfer(alice, '10000000000').send({ from: usdcOwner});
+        await usdcContract.methods.transfer(alice, '1000000000000000000').send({ from: usdcOwner});
+        await usdcContract.methods.transfer(admin, '1000000000000000000').send({ from: usdcOwner});
         console.log('---ended-before---');
     });
 
@@ -39,11 +40,18 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         await earnAPRWithPool.set_new_APR(aprWithPoolOracle.address)
         await xusdc.set_new_APR(earnAPRWithPool.address)
 
-        await usdcContract.methods.approve(xusdc.address, 10000000).send({
+        await usdcContract.methods.approve(xusdc.address, '1000000000000000000').send({
             from: alice
         });
 
-        await xusdc.deposit(10000000, {from: alice});
+        await xusdc.deposit('1000000000000000000', {from: alice});
+
+        await usdcContract.methods.approve(xusdc.address, '1000000000000000000').send({
+            from: admin
+        });
+
+        await xusdc.deposit('1000000000000000000', {from: admin});
+
         const balance = await xusdc.balanceOf(alice);
         console.log('balance', balance.toString());
         const tokenAmount = await xusdc.balanceOf(alice);
