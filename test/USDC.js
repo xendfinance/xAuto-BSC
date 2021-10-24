@@ -9,7 +9,7 @@ const usdcABI = require('./abi/usdc');
 
 const usdcAddress = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
 const usdcContract = new web3.eth.Contract(usdcABI, usdcAddress);
-const usdcOwner = '0x2b258fb1892bc1778f16e940f493a30f1aa711cd';
+const usdcOwner = '0x5a52e96bacdabb82fd05763e25335261b270efcb';
 
 contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
 
