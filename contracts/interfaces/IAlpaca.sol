@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.8;
+pragma solidity 0.6.12;
 interface IAlpaca {
     function balanceOf(address _owner) external view returns (uint256 balance);
     function deposit(uint256 _amount) external payable;

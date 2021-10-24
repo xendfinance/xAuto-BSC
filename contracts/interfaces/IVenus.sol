@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.8;
+pragma solidity 0.6.12;
 interface IVenus {
     function balanceOf(address _owner) external view returns (uint256 balance);
     function mint(uint mintAmount) external returns (uint);
