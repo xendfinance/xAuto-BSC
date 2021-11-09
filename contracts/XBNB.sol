@@ -67,11 +67,11 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     alpacaToken = address(0xd7D069493685A581d27824Fc46EdA46B7EfC0063);
     feeAmount = 0;
     feePrecision = 1000;
-    lenderStatus[Lender.FULCRUM] = true;
+    lenderStatus[Lender.FULCRUM] = false;
     lenderStatus[Lender.FORTUBE] = true;
     lenderStatus[Lender.VENUS] = true;
     lenderStatus[Lender.ALPACA] = true;
-    withdrawable[Lender.FULCRUM] = true;
+    withdrawable[Lender.FULCRUM] = false;
     withdrawable[Lender.FORTUBE] = true;
     withdrawable[Lender.VENUS] = true;
     withdrawable[Lender.ALPACA] = true;
