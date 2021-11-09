@@ -64,11 +64,11 @@ contract xUSDT is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     feeAmount = 0;
     feePrecision = 1000;
     approveToken();
-    lenderStatus[Lender.FULCRUM] = true;
+    lenderStatus[Lender.FULCRUM] = false;
     lenderStatus[Lender.FORTUBE] = true;
     lenderStatus[Lender.VENUS] = true;
     lenderStatus[Lender.ALPACA] = true;
-    withdrawable[Lender.FULCRUM] = true;
+    withdrawable[Lender.FULCRUM] = false;
     withdrawable[Lender.FORTUBE] = true;
     withdrawable[Lender.VENUS] = true;
     withdrawable[Lender.ALPACA] = true;
