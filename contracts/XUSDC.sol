@@ -73,7 +73,7 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       feeAddress = _new_fee_address;
   }
   function set_new_feePrecision(uint256 _newFeePrecision) public onlyOwner{
-    assert(_newFeePrecision >= 100);
+    require(_newFeePrecision >= 100, "fee precision must be greater than 100 at least");
     set_new_feeAmount(feeAmount*_newFeePrecision/feePrecision);
     feePrecision = _newFeePrecision;
   }
@@ -166,8 +166,8 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     return newProvider;
   }
 
-  function balance() public view returns (uint256) {
-    return IERC20(token).balanceOf(address(this));
+  function balance() external view returns (uint256) {
+    return _balance();
   }
 
   function getDepositedAmount(address investor) public view returns (uint256) {
@@ -178,35 +178,19 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       IERC20(token).approve(FortubeBank(fortubeBank).controller(),  uint(-1));
       IERC20(token).approve(venusToken, uint(-1));
   }
-  function balanceFortubeInToken() public view returns (uint256) {
-    uint256 b = balanceFortube();
-    if (b > 0) {
-      uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
-      uint256 oneAmount = FortubeToken(fortubeToken).ONE();
-      b = b.mul(exchangeRate).div(oneAmount).add(1);
-    }
-    return b;
-  }
-  function balanceVenusInToken() public view returns (uint256) {
-    uint256 b = balanceVenus();
-    if (b > 0 && withdrawable[Lender.VENUS]) {
-      uint256 exchangeRate = IVenus(venusToken).exchangeRateStored();
-      b = b.mul(exchangeRate).div(1e28).add(1).mul(1e10);
-    }
-    return b;
+  function balanceFortubeInToken() external view returns (uint256) {
+    return _balanceFortubeInToken();
   }
 
-  function balanceFortube() public view returns (uint256) {
-    if(withdrawable[Lender.FORTUBE])
-      return FortubeToken(fortubeToken).balanceOf(address(this));
-    else
-      return 0;
+  function balanceVenusInToken() external view returns (uint256) {
+    return _balanceVenusInToken();
   }
-  function balanceVenus() public view returns (uint256) {
-    if(withdrawable[Lender.VENUS])
-      return IERC20(venusToken).balanceOf(address(this));
-    else
-      return 0;
+
+  function balanceFortube() external view returns (uint256) {
+    return _balanceFortube();
+  }
+  function balanceVenus() external view returns (uint256) {
+    return _balanceVenus();
   }
 
   function _balance() internal view returns (uint256) {
@@ -214,7 +198,7 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function _balanceFortubeInToken() internal view returns (uint256) {
-    uint256 b = balanceFortube();
+    uint256 b = _balanceFortube();
     if (b > 0 && withdrawable[Lender.FORTUBE]) {
       uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
       uint256 oneAmount = FortubeToken(fortubeToken).ONE();
@@ -224,7 +208,7 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function _balanceVenusInToken() internal view returns (uint256) {
-    uint256 b = balanceVenus();
+    uint256 b = _balanceVenus();
     if (b > 0 && withdrawable[Lender.VENUS]) {
       uint256 exchangeRate = IVenus(venusToken).exchangeRateStored();
       b = b.mul(exchangeRate).div(1e28).add(1).mul(1e10);
@@ -257,15 +241,15 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   }
 
   function _withdrawSomeFortube(uint256 _amount) internal {
-    uint256 b = balanceFortube();
-    uint256 bT = balanceFortubeInToken();
+    uint256 b = _balanceFortube();
+    uint256 bT = _balanceFortubeInToken();
     require(bT >= _amount, "insufficient funds");
     uint256 amount = (b.mul(_amount)).div(bT).add(1);
     _withdrawFortube(amount);
   }
 
 function _withdrawSomeVenus(uint256 _amount) internal {
-    uint256 b = balanceVenus();
+    uint256 b = _balanceVenus();
     uint256 bT = _balanceVenusInToken();
     require(bT >= _amount, "insufficient funds");
     uint256 amount = (b.mul(_amount)).div(bT);
@@ -289,19 +273,6 @@ function _withdrawSomeVenus(uint256 _amount) internal {
       _withdrawAll();
     }
 
-    if (balance() > 0) {
-      if (newProvider == Lender.FORTUBE) {
-        supplyFortube(balance());
-      } else if (newProvider == Lender.VENUS) {
-        supplyVenus(balance());
-      }
-    }
-
-    provider = newProvider;
-  }
-
-  // Internal only rebalance for better gas in redeem
-  function _rebalance(Lender newProvider) internal {
     if (_balance() > 0) {
       if (newProvider == Lender.FORTUBE) {
         supplyFortube(_balance());
@@ -309,6 +280,7 @@ function _withdrawSomeVenus(uint256 _amount) internal {
         supplyVenus(_balance());
       }
     }
+
     provider = newProvider;
   }
 
@@ -336,13 +308,11 @@ function _withdrawSomeVenus(uint256 _amount) internal {
 
   function calcPoolValueInToken() public view returns (uint) {
 
-    return balanceFortubeInToken()
-      .add(balanceVenusInToken())
-      .add(balance());
+    return _calcPoolValueInToken();
   }
 
   function getPricePerFullShare() public view returns (uint) {
-    uint _pool = calcPoolValueInToken();
+    uint _pool = _calcPoolValueInToken();
     return _pool.mul(1e18).div(totalSupply());
   }
 
