@@ -51,6 +51,8 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
       VENUS,
       ALPACA
   }
+  mapping (Lender => bool) public lenderStatus;
+  mapping (Lender => bool) public withdrawable;
 
   Lender public provider = Lender.NONE;
 
@@ -65,7 +67,14 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
     alpacaToken = address(0xd7D069493685A581d27824Fc46EdA46B7EfC0063);
     feeAmount = 0;
     feePrecision = 1000;
-    // approveToken();
+    lenderStatus[Lender.FULCRUM] = true;
+    lenderStatus[Lender.FORTUBE] = true;
+    lenderStatus[Lender.VENUS] = true;
+    lenderStatus[Lender.ALPACA] = true;
+    withdrawable[Lender.FULCRUM] = true;
+    withdrawable[Lender.FORTUBE] = true;
+    withdrawable[Lender.VENUS] = true;
+    withdrawable[Lender.ALPACA] = true;
   }
 
   // Ownable setters incase of support in future for these systems
@@ -162,16 +171,16 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   function recommend() public view returns (Lender) {
     (uint256 fapr, uint256 ftapr, uint256 vapr, uint256 aapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
-    if (fapr > max) {
+    if (fapr > max && lenderStatus[Lender.FULCRUM]) {
       max = fapr;
     }
-    if (ftapr > max) {
+    if (ftapr > max && lenderStatus[Lender.FORTUBE]) {
       max = ftapr;
     }
-    if (vapr > max) {
+    if (vapr > max && lenderStatus[Lender.VENUS]) {
       max = vapr;
     }
-    if (aapr > max) {
+    if (aapr > max && lenderStatus[Lender.ALPACA]) {
       max = aapr;
     }
     Lender newProvider = Lender.NONE;
@@ -197,7 +206,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   function balanceFortubeInToken() public view returns (uint256) {
     uint256 b = balanceFortube();
-    if (b > 0) {
+    if (b > 0 && withdrawable[Lender.FORTUBE]) {
       uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
       uint256 oneAmount = FortubeToken(fortubeToken).ONE();
       b = b.mul(exchangeRate).div(oneAmount).add(1);
@@ -207,7 +216,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   function balanceFulcrumInToken() public view returns (uint256) {
     uint256 b = balanceFulcrum();
-    if (b > 0) {
+    if (b > 0 && withdrawable[Lender.FULCRUM]) {
       b = Fulcrum(fulcrum).assetBalanceOf(address(this));
     }
     return b;
@@ -215,7 +224,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   function balanceVenusInToken() public view returns (uint256) {
     uint256 b = balanceVenus();
-    if (b > 0) {
+    if (b > 0 && withdrawable[Lender.VENUS]) {
       uint256 exchangeRate = IVenus(venusToken).exchangeRateStored();
       b = b.mul(exchangeRate).div(1e28).add(1).mul(1e10);
     }
@@ -224,24 +233,36 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   function balanceAlpacaInToken() public view returns (uint256) {
     uint256 b = balanceAlpaca();
-    if (b > 0) {
+    if (b > 0 && withdrawable[Lender.ALPACA]) {
       b = b.mul(IAlpaca(alpacaToken).totalToken()).div(IAlpaca(alpacaToken).totalSupply()).add(1);
     }
     return b;
   }
 
   function balanceFulcrum() public view returns (uint256) {
-    return IERC20(fulcrum).balanceOf(address(this));
+    if(withdrawable[Lender.FULCRUM])
+      return IERC20(fulcrum).balanceOf(address(this));
+    else
+      return 0;
   }
   function balanceFortube() public view returns (uint256) {
-    return FortubeToken(fortubeToken).balanceOf(address(this));
+    if(withdrawable[Lender.FORTUBE])
+      return FortubeToken(fortubeToken).balanceOf(address(this));
+    else
+      return 0;
   }
   function balanceVenus() public view returns (uint256) {
-    return IERC20(venusToken).balanceOf(address(this));
+    if(withdrawable[Lender.VENUS])
+      return IERC20(venusToken).balanceOf(address(this));
+    else
+      return 0;
   }
 
   function balanceAlpaca() public view returns (uint256) {
-    return IAlpaca(alpacaToken).balanceOf(address(this));
+    if(withdrawable[Lender.VENUS])
+      return IAlpaca(alpacaToken).balanceOf(address(this));
+    else
+      return 0;
   }
 
   function _balance() internal view returns (uint256) {
@@ -251,7 +272,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   function _balanceFulcrumInToken() internal view returns (uint256) {
   
     uint256 b = balanceFulcrum();
-    if (b > 0) {
+    if (b > 0 && withdrawable[Lender.FULCRUM]) {
       b = Fulcrum(fulcrum).assetBalanceOf(address(this));
     }
     return b;
@@ -259,7 +280,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   function _balanceFortubeInToken() internal view returns (uint256) {
     uint256 b = balanceFortube();
-    if (b > 0) {
+    if (b > 0 && withdrawable[Lender.FORTUBE]) {
       uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
       uint256 oneAmount = FortubeToken(fortubeToken).ONE();
       b = b.mul(exchangeRate).div(oneAmount).add(1);
@@ -269,7 +290,7 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   function _balanceVenusInToken() internal view returns (uint256) {
     uint256 b = balanceVenus();
-    if (b > 0) {
+    if (b > 0 && withdrawable[Lender.VENUS]) {
       uint256 exchangeRate = IVenus(venusToken).exchangeRateStored();
       b = b.mul(exchangeRate).div(1e28).add(1).mul(1e10);
     }
@@ -278,24 +299,36 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   function _balanceAlpacaInToken() internal view returns (uint256) {
     uint256 b = balanceAlpaca();
-    if (b > 0) {
+    if (b > 0 && withdrawable[Lender.ALPACA]) {
       b = b.mul(IAlpaca(alpacaToken).totalToken()).div(IAlpaca(alpacaToken).totalSupply()).add(1);
     }
     return b;
   }
 
   function _balanceFulcrum() internal view returns (uint256) {
-    return IERC20(fulcrum).balanceOf(address(this));
+    if(withdrawable[Lender.FULCRUM])
+      return IERC20(fulcrum).balanceOf(address(this));
+    else
+      return 0;
   }
   function _balanceFortube() internal view returns (uint256) {
-    return IERC20(fortubeToken).balanceOf(address(this));
+    if(withdrawable[Lender.FORTUBE])
+      return FortubeToken(fortubeToken).balanceOf(address(this));
+    else
+      return 0;
   }
   function _balanceVenus() internal view returns (uint256) {
-    return IERC20(venusToken).balanceOf(address(this));
+    if(withdrawable[Lender.VENUS])
+      return IERC20(venusToken).balanceOf(address(this));
+    else
+      return 0;
   }
 
   function _balanceAlpaca() public view returns (uint256) {
-    return IAlpaca(alpacaToken).balanceOf(address(this));
+    if(withdrawable[Lender.VENUS])
+      return IAlpaca(alpacaToken).balanceOf(address(this));
+    else
+      return 0;
   }
 
   function _withdrawAll() internal {
@@ -455,5 +488,22 @@ contract xBNB is ERC20, ReentrancyGuard, Ownable, TokenStructs {
   function getPricePerFullShare() public view returns (uint) {
     uint _pool = calcPoolValueInToken();
     return _pool.mul(1e18).div(totalSupply());
+  }
+
+  function activateLender(Lender lender) public onlyOwner {
+    lenderStatus[lender] = true;
+    withdrawable[lender] = true;
+    rebalance();
+  }
+
+  function deactivateWithdrawableLender(Lender lender) public onlyOwner {
+    lenderStatus[lender] = false;
+    rebalance();
+  }
+
+  function deactivateNonWithdrawableLender(Lender lender) public onlyOwner {
+    lenderStatus[lender] = false;
+    withdrawable[lender] = false;
+    rebalance();
   }
 }
