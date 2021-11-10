@@ -93,7 +93,7 @@ contract APRWithPoolOracle is Ownable {
   function getVenusAPRAdjusted(address token) external view returns (uint256) {
     uint256 supplyRatePerBlock = IVenus(token).supplyRatePerBlock();
     int128 _temp = ABDKMath64x64.add(ABDKMath64x64.mul(ABDKMath64x64.divu(supplyRatePerBlock, 1e18),ABDKMath64x64.fromUInt(20*60*24)),ABDKMath64x64.fromUInt(1));
-    return ABDKMath64x64.toUInt(ABDKMath64x64.sub(ABDKMath64x64.pow(_temp, 365),ABDKMath64x64.fromUInt(1)) * 1e18)*1e2;
+    return ABDKMath64x64.mulu(ABDKMath64x64.sub(ABDKMath64x64.pow(_temp, 365),ABDKMath64x64.fromUInt(1)), 1e18)*1e2;
   }
 
   function getAlpacaAPRAdjusted(address token) external view returns(uint256) {
