@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/proxy/Initializable.sol";
 import "./libraries/Ownable.sol";
 import './libraries/TokenStructs.sol';
 import './interfaces/FortubeToken.sol';
@@ -17,7 +18,7 @@ import './interfaces/IIEarnManager.sol';
 import './interfaces/ITreasury.sol';
 import './interfaces/IVenus.sol';
 
-contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
+contract xUSDC is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initializable {
   using SafeERC20 for IERC20;
   using Address for address;
   using SafeMath for uint256;
@@ -44,14 +45,36 @@ contract xUSDC is ERC20, ReentrancyGuard, Ownable, TokenStructs {
 
   Lender public provider = Lender.NONE;
 
-  constructor () public ERC20("xend USDC", "xUSDC") {
+  mapping (address => uint256) private _balances;
 
-    token = address(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d);
-    apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    fortubeToken = address(0xb2CB0Af60372E242710c42e1C34579178c3D2BED);
-    fortubeBank = address(0x0cEA0832e9cdBb5D476040D58Ea07ecfbeBB7672);
-    feeAddress = address(0x143afc138978Ad681f7C7571858FAAA9D426CecE);
-    venusToken = address(0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8);
+  mapping (address => mapping (address => uint256)) private _allowances;
+
+  uint256 private _totalSupply;
+
+  string private _name;
+  string private _symbol;
+  uint8 private _decimals;
+  
+  constructor () public {
+    // token = address(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d);
+    // apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
+    // fortubeToken = address(0xb2CB0Af60372E242710c42e1C34579178c3D2BED);
+    // fortubeBank = address(0x0cEA0832e9cdBb5D476040D58Ea07ecfbeBB7672);
+    // feeAddress = address(0x143afc138978Ad681f7C7571858FAAA9D426CecE);
+    // venusToken = address(0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8);
+    }
+
+  function initialize(
+    address _token, address _apr, address _fortubeToken, address _fortubeBank, address _feeAddress, address _venusToken
+  ) public initializer{
+    _name = "xend USDC";
+    _symbol = "xUSDC";
+    token = token;
+    apr = _apr;
+    fortubeToken = _fortubeToken;
+    fortubeBank = _fortubeBank;
+    feeAddress = _feeAddress;
+    venusToken = _venusToken;
     feeAmount = 0;
     feePrecision = 1000;
     approveToken();
@@ -332,4 +355,99 @@ function _withdrawSomeVenus(uint256 _amount) internal {
     withdrawable[lender] = false;
     rebalance();
   }
+  
+    function name() public view virtual returns (string memory) {
+        return _name;
+    }
+    
+    function symbol() public view virtual returns (string memory) {
+        return _symbol;
+    }
+    
+    function decimals() public view virtual returns (uint8) {
+        return _decimals;
+    }
+    
+    function totalSupply() public view virtual override returns (uint256) {
+        return _totalSupply;
+    }
+    
+    function balanceOf(address account) public view virtual override returns (uint256) {
+        return _balances[account];
+    }
+    
+    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
+        _transfer(_msgSender(), recipient, amount);
+        return true;
+    }
+    
+    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+    
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        _approve(_msgSender(), spender, amount);
+        return true;
+    }
+    
+    function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns (bool) {
+        _transfer(sender, recipient, amount);
+        _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
+        return true;
+    }
+    
+    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
+        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
+        return true;
+    }
+    
+    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
+        return true;
+    }
+    
+    function _transfer(address sender, address recipient, uint256 amount) internal virtual {
+        require(sender != address(0), "ERC20: transfer from the zero address");
+        require(recipient != address(0), "ERC20: transfer to the zero address");
+
+        _beforeTokenTransfer(sender, recipient, amount);
+
+        _balances[sender] = _balances[sender].sub(amount, "ERC20: transfer amount exceeds balance");
+        _balances[recipient] = _balances[recipient].add(amount);
+        emit Transfer(sender, recipient, amount);
+    }
+    
+    function _mint(address account, uint256 amount) internal virtual {
+        require(account != address(0), "ERC20: mint to the zero address");
+
+        _beforeTokenTransfer(address(0), account, amount);
+
+        _totalSupply = _totalSupply.add(amount);
+        _balances[account] = _balances[account].add(amount);
+        emit Transfer(address(0), account, amount);
+    }
+    
+    function _burn(address account, uint256 amount) internal virtual {
+        require(account != address(0), "ERC20: burn from the zero address");
+
+        _beforeTokenTransfer(account, address(0), amount);
+
+        _balances[account] = _balances[account].sub(amount, "ERC20: burn amount exceeds balance");
+        _totalSupply = _totalSupply.sub(amount);
+        emit Transfer(account, address(0), amount);
+    }
+    
+    function _approve(address owner, address spender, uint256 amount) internal virtual {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+    
+    function _setupDecimals(uint8 decimals_) internal virtual {
+        _decimals = decimals_;
+    }
+
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual { }
 }
