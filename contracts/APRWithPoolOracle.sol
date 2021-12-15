@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/proxy/Initializable.sol";
 import "./libraries/Ownable.sol";
 import {ABDKMath64x64} from "./libraries/ABDKMath64x64.sol";
 
@@ -57,7 +58,7 @@ interface IUniswapV2Router02{
   function getAmountsOut(uint256 _amount, address[] calldata path) external view returns (uint256[] memory);
 }
 
-contract APRWithPoolOracle is Ownable {
+contract APRWithPoolOracle is Ownable, Initializable {
   using SafeMath for uint256;
   using Address for address;
 
@@ -66,7 +67,9 @@ contract APRWithPoolOracle is Ownable {
   address private uniswapRouter;
   mapping (address => uint256) public alpacaTokenIndex;
 
-  constructor() public {
+  constructor() public {}
+
+  function initialize() public initializer{
     usdtTokenAddress = address(0x55d398326f99059fF775485246999027B3197955);
     wbnb = address(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
     uniswapRouter = address(0x10ED43C718714eb63d5aA57B78B54704E256024E);

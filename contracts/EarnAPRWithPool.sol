@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/proxy/Initializable.sol";
 import "./libraries/Ownable.sol";
 
 interface IAPRWithPoolOracle {
@@ -17,7 +18,7 @@ interface IAPRWithPoolOracle {
 
 }
 
-contract EarnAPRWithPool is Ownable {
+contract EarnAPRWithPool is Ownable, Initializable {
     using SafeMath for uint;
     using Address for address;
 
@@ -29,10 +30,12 @@ contract EarnAPRWithPool is Ownable {
 
     address public APR;
 
-    constructor() public {
-        //mainnet
-        APR = address(0x0bCf5B3603fe34428Ac460C52674F12517d7C9aE);
+    constructor() public {}
 
+    function initialize(
+      address _apr
+    ) public initializer{
+        APR = _apr;
         addFToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0x7343b25c4953f4C57ED4D16c33cbEDEFAE9E8Eb9); //fBUSD
         addFToken(0x55d398326f99059fF775485246999027B3197955, 0xf326b42A237086F1De4E7D68F2d2456fC787bc01); //fUSDT
         addFToken(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0x49646513609085f39D9e44b413c74530Ba6E2c0F); //fBNB
