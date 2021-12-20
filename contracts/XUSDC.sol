@@ -32,6 +32,8 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
   uint256 public feeAmount;
   address public venusToken;
   uint256 public feePrecision;
+  uint256 private lastWithdrawFeeTime;
+  uint256 public totalDepositedAmount;
 
   mapping (address => uint256) depositedAmount;
 
@@ -55,33 +57,26 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
   string private _symbol;
   uint8 private _decimals;
   
-  constructor () public {
-    // token = address(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d);
-    // apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    // fortubeToken = address(0xb2CB0Af60372E242710c42e1C34579178c3D2BED);
-    // fortubeBank = address(0x0cEA0832e9cdBb5D476040D58Ea07ecfbeBB7672);
-    // feeAddress = address(0x143afc138978Ad681f7C7571858FAAA9D426CecE);
-    // venusToken = address(0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8);
-    }
+  constructor () public {}
 
   function initialize(
-    address _token, address _apr, address _fortubeToken, address _fortubeBank, address _feeAddress, address _venusToken
+    address _apr
   ) public initializer{
+    apr = _apr;
     _name = "xend USDC";
     _symbol = "xUSDC";
-    token = token;
-    apr = _apr;
-    fortubeToken = _fortubeToken;
-    fortubeBank = _fortubeBank;
-    feeAddress = _feeAddress;
-    venusToken = _venusToken;
+    token = address(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d);
+    fortubeToken = address(0xb2CB0Af60372E242710c42e1C34579178c3D2BED);
+    fortubeBank = address(0x0cEA0832e9cdBb5D476040D58Ea07ecfbeBB7672);
+    feeAddress = address(0x143afc138978Ad681f7C7571858FAAA9D426CecE);
+    venusToken = address(0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8);
     feeAmount = 0;
     feePrecision = 1000;
-    approveToken();
     lenderStatus[Lender.FORTUBE] = true;
     lenderStatus[Lender.VENUS] = true;
     withdrawable[Lender.FORTUBE] = true;
     withdrawable[Lender.VENUS] = true;
+    approveToken();
   }
 
   // Ownable setters incase of support in future for these systems
@@ -124,6 +119,9 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
       pool = _calcPoolValueInToken();
       _mint(msg.sender, shares);
       depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amount);
+      totalDepositedAmount = totalDepositedAmount.add(_amount);
+      if(lastWithdrawFeeTime == 0)
+        lastWithdrawFeeTime = block.timestamp;
       emit Deposit(msg.sender, _amount);
   }
 
@@ -139,14 +137,10 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
 
       // Could have over value from xTokens
       pool = _calcPoolValueInToken();
-      uint256 i = (pool.mul(ibalance)).div(totalSupply());
       // Calc to redeem before updating balances
-      uint256 r = (pool.mul(_shares)).div(totalSupply());
-      if(i < depositedAmount[msg.sender]){
-        i = i.add(1);
-        r = r.add(1);
-      }
-      uint256 profit = (i.sub(depositedAmount[msg.sender])).mul(_shares.div(depositedAmount[msg.sender]));
+      uint256 fee = pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision);
+      // uint256 fee = 0;
+      uint256 r = (pool.sub(fee).mul(_shares)).div(totalSupply());
 
       emit Transfer(msg.sender, address(0), _shares);
 
@@ -155,15 +149,11 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
       if (b < r) {
         _withdrawSome(r.sub(b));
       }
-
-      uint256 fee = profit.mul(feeAmount).div(feePrecision);
-      if(fee > 0){
-        IERC20(token).approve(feeAddress, fee);
-        ITreasury(feeAddress).depositToken(token);
-      }
-      IERC20(token).safeTransfer(msg.sender, r.sub(fee));
-      _burn(msg.sender, _shares);
+      
+      IERC20(token).safeTransfer(msg.sender, r);
+      totalDepositedAmount = totalDepositedAmount.sub(_shares.mul(depositedAmount[msg.sender]).div(ibalance));
       depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(_shares.mul(depositedAmount[msg.sender]).div(ibalance));
+      _burn(msg.sender, _shares);
       rebalance();
       pool = _calcPoolValueInToken();
       emit Withdraw(msg.sender, _shares);
@@ -295,12 +285,14 @@ function _withdrawSomeVenus(uint256 _amount) internal {
     if (newProvider != provider) {
       _withdrawAll();
     }
+    uint256 shareToken = 0;
 
     if (_balance() > 0) {
       if (newProvider == Lender.FORTUBE) {
         supplyFortube(_balance());
       } else if (newProvider == Lender.VENUS) {
         supplyVenus(_balance());
+        shareToken = IVenus(venusToken).balanceOf(address(this));
       }
     }
 
@@ -354,6 +346,17 @@ function _withdrawSomeVenus(uint256 _amount) internal {
     lenderStatus[lender] = false;
     withdrawable[lender] = false;
     rebalance();
+  }
+  
+  function withdrawFee() public {
+    pool = _calcPoolValueInToken();
+    uint256 amount = pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision).mul(block.timestamp.sub(lastWithdrawFeeTime)).div(365 * 24 * 60 * 60);
+    if(amount > 0){
+      _withdrawSome(amount);
+      IERC20(token).approve(feeAddress, amount);
+      ITreasury(feeAddress).depositToken(token);
+      lastWithdrawFeeTime = block.timestamp;
+    }    
   }
   
     function name() public view virtual returns (string memory) {

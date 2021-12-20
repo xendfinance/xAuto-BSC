@@ -52,6 +52,7 @@ interface IAlpacaFairLaunch {
 interface IAlpacaConfig {
   function getFairLaunchAddr() external view returns (address);
   function getInterestRate(uint256 debt, uint256 floating) external view returns (uint256);
+  function getReservePoolBps() external view returns(uint256);
 }
 
 interface IUniswapV2Router02{
@@ -62,20 +63,14 @@ contract APRWithPoolOracle is Ownable, Initializable {
   using SafeMath for uint256;
   using Address for address;
 
-  address private usdtTokenAddress;
   address private wbnb;
   address private uniswapRouter;
-  mapping (address => uint256) public alpacaTokenIndex;
 
   constructor() public {}
 
   function initialize() public initializer{
-    usdtTokenAddress = address(0x55d398326f99059fF775485246999027B3197955);
     wbnb = address(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
     uniswapRouter = address(0x10ED43C718714eb63d5aA57B78B54704E256024E);
-    alpacaTokenIndex[address(0x7C9e73d4C71dae564d41F78d56439bB4ba87592f)] = 3;
-    alpacaTokenIndex[address(0x158Da805682BdC8ee32d52833aD41E74bb951E59)] = 16;
-    alpacaTokenIndex[address(0xd7D069493685A581d27824Fc46EdA46B7EfC0063)] = 1;
   }
   function getFulcrumAPRAdjusted(address token, uint256 _supply) external view returns(uint256) {
     if(token == address(0))
@@ -106,7 +101,7 @@ contract APRWithPoolOracle is Ownable, Initializable {
       IAlpaca alpaca = IAlpaca(token);
       IAlpacaConfig config = IAlpacaConfig(alpaca.config());
       uint256 borrowInterest = config.getInterestRate(alpaca.vaultDebtVal(), alpaca.totalToken() - alpaca.vaultDebtVal()) * 365 * 24 * 3600;
-      uint256 lendingApr = borrowInterest * alpaca.vaultDebtVal() / alpaca.totalToken() * (100 - 19) / 100;
+      uint256 lendingApr = borrowInterest * alpaca.vaultDebtVal() / alpaca.totalToken() * (100 - (config.getReservePoolBps() / 100)) / 100;
       uint256 apr = lendingApr;
       return 
         ABDKMath64x64.mulu(
@@ -117,9 +112,5 @@ contract APRWithPoolOracle is Ownable, Initializable {
           1e18
         )*1e2;
     }
-  }
-
-  function setAlpacaTokenIndex(address _token, uint256 _index) public onlyOwner{
-    alpacaTokenIndex[_token] = _index;
   }
 }

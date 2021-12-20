@@ -34,10 +34,6 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         await busdContract.methods.transfer(minter, '1000000000000000000').send({ from: busdOwner});
         await busdContract.methods.transfer(dev, '1000000000000000000').send({ from: busdOwner});
         
-
-        // await busdContract.methods.transfer(this.xbusdContract.address, 10000).send({
-        //     from: admin
-        // });
         console.log('---ended-before---');
     });
 
@@ -45,30 +41,91 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         let aprWithPoolOracle = this.aprWithPoolOracle;
         let earnAPRWithPool = this.earnAPRWithPool;
         let xbusd = this.xbusdContract;
-        await earnAPRWithPool.set_new_APR(aprWithPoolOracle.address)
-        await xbusd.set_new_APR(earnAPRWithPool.address)
-        let balanceOfAlice = await busdContract.methods.balanceOf(alice).call();
-        console.log('balanceOfAlice', balanceOfAlice);
+        await aprWithPoolOracle.initialize();
+        await earnAPRWithPool.initialize(aprWithPoolOracle.address)
+        await xbusd.initialize(earnAPRWithPool.address)
 
+        fee_address = await xbusd.feeAddress();
+        await xbusd.set_new_feeAmount(10);     
+        await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
+            from: admin
+        }); 
         await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
             from: alice
         });
 
-        await xbusd.deposit('1000000000000000000', {from: alice});
         await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
+            from: dev
+        }); 
+        await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
+            from: minter
+        });
+
+        await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
+            from: bob
+        });
+
+        console.log('before_xbusd_balance',await busdContract.methods.balanceOf(xbusd.address).call());
+        console.log('before_alice_balance',await busdContract.methods.balanceOf(alice).call());
+        console.log('before_admin_balance',await busdContract.methods.balanceOf(admin).call());
+        console.log('before_dev_balance',await busdContract.methods.balanceOf(dev).call());
+        console.log('before_minter_balance',await busdContract.methods.balanceOf(minter).call());
+        console.log('before_bob_balance',await busdContract.methods.balanceOf(bob).call());
+
+        await xbusd.deposit('8000000', {from: admin});
+        await xbusd.deposit('10000000', {from: dev});
+        await xbusd.deposit('10000000', {from: minter});
+        await busdContract.methods.transfer(xbusd.address, '500000').send({
             from: admin
         });
 
-        await xbusd.deposit('1000000000000000000', {from: admin});
-        const balance = await xbusd.balanceOf(alice);
-        console.log('balance', balance.toString());
-        const tokenAmount = await xbusd.balanceOf(alice);
-        await xbusd.withdraw(tokenAmount, {from: alice});
-        const currentBalance = await xbusd.balanceOf(alice);
-        console.log('final_balance', currentBalance.toString());
-        balanceOfAlice = await busdContract.methods.balanceOf(alice).call();
-        console.log('balanceOfAlice', balanceOfAlice);
-        balanceOfXtoken = await xbusd.calcPoolValueInToken();
-        console.log('balanceOfXtoken', balanceOfXtoken.toString());
+        console.log('fee_address_balance', await busdContract.methods.balanceOf(fee_address).call());
+        await xbusd.withdrawFee({from : alice});
+        console.log('fee_address_balance', await busdContract.methods.balanceOf(fee_address).call());
+
+        await xbusd.deposit('2000000', {from: bob});
+        await xbusd.deposit('5000000', {from: alice});
+        
+        let tokenAmount = await xbusd.balanceOf(alice);
+        console.log('------------', tokenAmount.toString());
+        await xbusd.rebalance();
+        let provider = await xbusd.provider();
+        console.log('provider',provider.toString());
+
+        tokenAmount = await xbusd.balanceOf(alice);
+        console.log('alice------------', tokenAmount.toString());
+        await xbusd.withdraw(tokenAmount.toString(), {from: alice});
+        
+        tokenAmount = await xbusd.balanceOf(admin);
+        console.log('admin------------', tokenAmount.toString());
+        await xbusd.withdraw(tokenAmount.toString(), {from: admin});
+        
+        tokenAmount = await xbusd.balanceOf(dev);
+        console.log('dev------------', tokenAmount.toString());
+        await xbusd.withdraw(tokenAmount.toString(), {from: dev});
+        
+        tokenAmount = await xbusd.balanceOf(minter);
+        console.log('minter------------', tokenAmount.toString());
+        await xbusd.withdraw(tokenAmount.toString(), {from: minter});
+
+        console.log('fee_address_balance', await busdContract.methods.balanceOf(fee_address).call());
+        await xbusd.withdrawFee({from : alice});
+        console.log('fee_address_balance', await busdContract.methods.balanceOf(fee_address).call());
+        
+        tokenAmount = await xbusd.balanceOf(bob);
+        console.log('bob------------', tokenAmount.toString());
+        await xbusd.withdraw(tokenAmount.toString(), {from: bob});
+
+        console.log('after_xbusd_balance',await busdContract.methods.balanceOf(xbusd.address).call());
+        console.log('after_alice_balance',await busdContract.methods.balanceOf(alice).call());
+        console.log('after_admin_balance',await busdContract.methods.balanceOf(admin).call());
+        console.log('after_dev_balance',await busdContract.methods.balanceOf(dev).call());
+        console.log('after_minter_balance',await busdContract.methods.balanceOf(minter).call());
+        console.log('after_bob_balance',await busdContract.methods.balanceOf(bob).call());
+
+        console.log('fee_address_balance', await busdContract.methods.balanceOf(fee_address).call());
+        await xbusd.withdrawFee({from : alice});
+        console.log('fee_address_balance', await busdContract.methods.balanceOf(fee_address).call());
+    
     })
 })

@@ -42,6 +42,8 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
   address public venusToken;
   uint256 public feePrecision;
   address public alpacaToken;
+  uint256 private lastWithdrawFeeTime;
+  uint256 public totalDepositedAmount;
 
   mapping (address => uint256) depositedAmount;
 
@@ -67,37 +69,28 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
   string private _symbol;
   uint8 private _decimals;
 
-  constructor () public {
-    // token = address(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
-    // apr = address(0xdD6d648C991f7d47454354f4Ef326b04025a48A8);
-    // fulcrum = address(0x49646513609085f39D9e44b413c74530Ba6E2c0F);
-    // fortubeToken = address(0xf330b39f74e7f71ab9604A5307690872b8125aC8);
-    // fortubeBank = address(0x0cEA0832e9cdBb5D476040D58Ea07ecfbeBB7672);
-    // feeAddress = address(0x143afc138978Ad681f7C7571858FAAA9D426CecE);
-    // venusToken = address(0xA07c5b74C9B40447a954e1466938b865b6BBea36);
-    // alpacaToken = address(0xd7D069493685A581d27824Fc46EdA46B7EfC0063);
-    }
+  constructor () public {}
 
   function initialize(
-    address _token, address _apr, address _fulcrum, address _fortubeToken, address _fortubeBank, address _feeAddress, address _venusToken, address _alpacaToken
+    address _apr
   ) public initializer{
+    apr = _apr;
     _name = "xend BNB";
     _symbol = "xBNB";
-    token = token;
-    apr = _apr;
-    fulcrum = _fulcrum;
-    fortubeToken = _fortubeToken;
-    fortubeBank = _fortubeBank;
-    feeAddress = _feeAddress;
-    venusToken = _venusToken;
-    alpacaToken = _alpacaToken;
+    token = address(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
+    fulcrum = address(0xB8329B5458B1E493EFd8D9DA8C3B5E6D68e67C21);
+    fortubeToken = address(0xf330b39f74e7f71ab9604A5307690872b8125aC8);
+    fortubeBank = address(0x0cEA0832e9cdBb5D476040D58Ea07ecfbeBB7672);
+    feeAddress = address(0x143afc138978Ad681f7C7571858FAAA9D426CecE);
+    venusToken = address(0xA07c5b74C9B40447a954e1466938b865b6BBea36);
+    alpacaToken = address(0xd7D069493685A581d27824Fc46EdA46B7EfC0063);
     feeAmount = 0;
     feePrecision = 1000;
-    lenderStatus[Lender.FULCRUM] = false;
+    lenderStatus[Lender.FULCRUM] = true;
     lenderStatus[Lender.FORTUBE] = true;
     lenderStatus[Lender.VENUS] = true;
     lenderStatus[Lender.ALPACA] = true;
-    withdrawable[Lender.FULCRUM] = false;
+    withdrawable[Lender.FULCRUM] = true;
     withdrawable[Lender.FORTUBE] = true;
     withdrawable[Lender.VENUS] = true;
     withdrawable[Lender.ALPACA] = true;
@@ -145,6 +138,9 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
       pool = _calcPoolValueInToken();
       _mint(msg.sender, shares);
       depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amount);
+      totalDepositedAmount = totalDepositedAmount.add(_amount);
+      if(lastWithdrawFeeTime == 0)
+        lastWithdrawFeeTime = block.timestamp;
       emit Deposit(msg.sender, _amount);
   }
 
@@ -159,14 +155,15 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
 
       // Could have over value from xTokens
       pool = _calcPoolValueInToken();
-      uint256 i = (pool.mul(ibalance)).div(totalSupply());
+      // uint256 i = (pool.mul(ibalance)).div(totalSupply());
       // Calc to redeem before updating balances
-      uint256 r = (pool.mul(_shares)).div(totalSupply());
-      if(i < depositedAmount[msg.sender]){
-        i = i.add(1);
-        r = r.add(1);
-      }
-      uint256 profit = (i.sub(depositedAmount[msg.sender])).mul(_shares.div(depositedAmount[msg.sender]));
+      uint256 fee = pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision);
+      uint256 r = (pool.sub(fee).mul(_shares)).div(totalSupply());
+      // if(i < depositedAmount[msg.sender]){
+      //   i = i.add(1);
+      //   r = r.add(1);
+      // }
+      // uint256 profit = (i.sub(depositedAmount[msg.sender])).mul(_shares.div(depositedAmount[msg.sender]));
 
       emit Transfer(msg.sender, address(0), _shares);
 
@@ -177,15 +174,16 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
         _withdrawSome(r.sub(b));
       }
       bool success;
-      uint256 fee = profit.mul(feeAmount).div(feePrecision);
-      if(fee > 0){
-        (success,) = payable(feeAddress).call{value: fee}("");
-        require(success, "Failed to send BNB");
-      }
-      (success,) = payable(msg.sender).call{value: r.sub(fee)}("");
+      // uint256 fee = profit.mul(feeAmount).div(feePrecision);
+      // if(fee > 0){
+      //   (success,) = payable(feeAddress).call{value: fee}("");
+      //   require(success, "Failed to send BNB");
+      // }
+      (success,) = payable(msg.sender).call{value: r}("");
       require(success, "Failed to send BNB");
 
       _burn(msg.sender, _shares);
+      totalDepositedAmount = totalDepositedAmount.sub(_shares.mul(depositedAmount[msg.sender]).div(ibalance));
       depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(_shares.mul(depositedAmount[msg.sender]).div(ibalance));
       rebalance();
       pool = _calcPoolValueInToken();
@@ -480,6 +478,16 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
     lenderStatus[lender] = false;
     withdrawable[lender] = false;
     rebalance();
+  }
+
+  function withdrawFee() public {
+    pool = _calcPoolValueInToken();
+    uint256 amount = pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision).mul(block.timestamp.sub(lastWithdrawFeeTime)).div(365 * 24 * 60 * 60);
+    if(amount > 0){
+      _withdrawSome(amount);
+      (bool success,) = payable(feeAddress).call{value: amount}("");
+      lastWithdrawFeeTime = block.timestamp;
+    }    
   }
 
     function name() public view virtual returns (string memory) {

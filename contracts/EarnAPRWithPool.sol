@@ -36,9 +36,9 @@ contract EarnAPRWithPool is Ownable, Initializable {
       address _apr
     ) public initializer{
         APR = _apr;
-        addFToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0x7343b25c4953f4C57ED4D16c33cbEDEFAE9E8Eb9); //fBUSD
-        addFToken(0x55d398326f99059fF775485246999027B3197955, 0xf326b42A237086F1De4E7D68F2d2456fC787bc01); //fUSDT
-        addFToken(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0x49646513609085f39D9e44b413c74530Ba6E2c0F); //fBNB
+        addFToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0x1a7189Af4e5f58Ddd0b9B195a53E5f4e4b55c949); //fBUSD
+        addFToken(0x55d398326f99059fF775485246999027B3197955, 0xC3f6816C860e7d7893508C8F8568d5AF190f6d7d); //fUSDT
+        addFToken(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0xB8329B5458B1E493EFd8D9DA8C3B5E6D68e67C21); //fBNB
 
         addFTToken(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, 0x57160962Dc107C8FBC2A619aCA43F79Fd03E7556); //ftBUSD
         addFTToken(0x55d398326f99059fF775485246999027B3197955, 0xBf9213D046C2c1e6775dA2363fC47F10C4471255); //ftUSDT
@@ -74,7 +74,6 @@ contract EarnAPRWithPool is Ownable, Initializable {
       }
       addr = venus[_token];
       if (addr != address(0)) {
-        // IAPRWithPoolOracle(APR).calcVenusAPR(addr);
         _venus = IAPRWithPoolOracle(APR).getVenusAPRAdjusted(addr);
       }
       addr = alpaca[_token];
