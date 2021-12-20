@@ -30,6 +30,10 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         
         await usdtContract.methods.transfer(alice, '1000000000000000000').send({ from: usdtOwner});
         await usdtContract.methods.transfer(admin, '1000000000000000000').send({ from: usdtOwner});
+        await usdtContract.methods.transfer(bob, '1000000000000000000').send({ from: usdtOwner});
+        await usdtContract.methods.transfer(minter, '1000000000000000000').send({ from: usdtOwner});
+        await usdtContract.methods.transfer(dev, '1000000000000000000').send({ from: usdtOwner});
+        
         console.log('---ended-before---');
     });
 
@@ -37,25 +41,91 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         let aprWithPoolOracle = this.aprWithPoolOracle;
         let earnAPRWithPool = this.earnAPRWithPool;
         let xusdt = this.xusdtContract;
-        await earnAPRWithPool.set_new_APR(aprWithPoolOracle.address)
-        await xusdt.set_new_APR(earnAPRWithPool.address)
+        await aprWithPoolOracle.initialize();
+        await earnAPRWithPool.initialize(aprWithPoolOracle.address)
+        await xusdt.initialize(earnAPRWithPool.address)
 
+        fee_address = await xusdt.feeAddress();
+        await xusdt.set_new_feeAmount(10);     
+        await usdtContract.methods.approve(xusdt.address, '1000000000000000000').send({
+            from: admin
+        }); 
         await usdtContract.methods.approve(xusdt.address, '1000000000000000000').send({
             from: alice
         });
 
-        await xusdt.deposit('1000000000000000000', {from: alice});
         await usdtContract.methods.approve(xusdt.address, '1000000000000000000').send({
+            from: dev
+        }); 
+        await usdtContract.methods.approve(xusdt.address, '1000000000000000000').send({
+            from: minter
+        });
+
+        await usdtContract.methods.approve(xusdt.address, '1000000000000000000').send({
+            from: bob
+        });
+
+        console.log('before_xusdt_balance',await usdtContract.methods.balanceOf(xusdt.address).call());
+        console.log('before_alice_balance',await usdtContract.methods.balanceOf(alice).call());
+        console.log('before_admin_balance',await usdtContract.methods.balanceOf(admin).call());
+        console.log('before_dev_balance',await usdtContract.methods.balanceOf(dev).call());
+        console.log('before_minter_balance',await usdtContract.methods.balanceOf(minter).call());
+        console.log('before_bob_balance',await usdtContract.methods.balanceOf(bob).call());
+
+        await xusdt.deposit('8000000', {from: admin});
+        await xusdt.deposit('10000000', {from: dev});
+        await xusdt.deposit('10000000', {from: minter});
+        await usdtContract.methods.transfer(xusdt.address, '500000').send({
             from: admin
         });
 
-        await xusdt.deposit('1000000000000000000', {from: admin});
+        console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
+        await xusdt.withdrawFee({from : alice});
+        console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
 
-        const balance = await xusdt.balanceOf(alice);
-        console.log('balance', balance.toString());
-        const tokenAmount = await xusdt.balanceOf(alice);
-        await xusdt.withdraw(tokenAmount, {from: alice});
-        const currentBalance = await xusdt.balanceOf(alice);
-        console.log('final_balance', currentBalance.toString());
+        await xusdt.deposit('2000000', {from: bob});
+        await xusdt.deposit('5000000', {from: alice});
+        
+        let tokenAmount = await xusdt.balanceOf(alice);
+        console.log('------------', tokenAmount.toString());
+        await xusdt.rebalance();
+        let provider = await xusdt.provider();
+        console.log('provider',provider.toString());
+
+        tokenAmount = await xusdt.balanceOf(alice);
+        console.log('alice------------', tokenAmount.toString());
+        await xusdt.withdraw(tokenAmount.toString(), {from: alice});
+        
+        tokenAmount = await xusdt.balanceOf(admin);
+        console.log('admin------------', tokenAmount.toString());
+        await xusdt.withdraw(tokenAmount.toString(), {from: admin});
+        
+        tokenAmount = await xusdt.balanceOf(dev);
+        console.log('dev------------', tokenAmount.toString());
+        await xusdt.withdraw(tokenAmount.toString(), {from: dev});
+        
+        tokenAmount = await xusdt.balanceOf(minter);
+        console.log('minter------------', tokenAmount.toString());
+        await xusdt.withdraw(tokenAmount.toString(), {from: minter});
+
+        console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
+        await xusdt.withdrawFee({from : alice});
+        console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
+        
+        tokenAmount = await xusdt.balanceOf(bob);
+        console.log('bob------------', tokenAmount.toString());
+        await xusdt.withdraw(tokenAmount.toString(), {from: bob});
+
+        console.log('after_xusdt_balance',await usdtContract.methods.balanceOf(xusdt.address).call());
+        console.log('after_alice_balance',await usdtContract.methods.balanceOf(alice).call());
+        console.log('after_admin_balance',await usdtContract.methods.balanceOf(admin).call());
+        console.log('after_dev_balance',await usdtContract.methods.balanceOf(dev).call());
+        console.log('after_minter_balance',await usdtContract.methods.balanceOf(minter).call());
+        console.log('after_bob_balance',await usdtContract.methods.balanceOf(bob).call());
+
+        console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
+        await xusdt.withdrawFee({from : alice});
+        console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
+    
     })
 })
