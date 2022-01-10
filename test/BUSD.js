@@ -28,11 +28,11 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         const forceSend = await ForceSend.new();
         await forceSend.go(busdOwner, { value: ether('1') });
         
-        await busdContract.methods.transfer(alice, '1000000000000000000').send({ from: busdOwner});
-        await busdContract.methods.transfer(admin, '1000000000000000000').send({ from: busdOwner});
-        await busdContract.methods.transfer(bob, '1000000000000000000').send({ from: busdOwner});
-        await busdContract.methods.transfer(minter, '1000000000000000000').send({ from: busdOwner});
-        await busdContract.methods.transfer(dev, '1000000000000000000').send({ from: busdOwner});
+        await busdContract.methods.transfer(alice, '10000000000000000000').send({ from: busdOwner});
+        await busdContract.methods.transfer(admin, '10000000000000000000').send({ from: busdOwner});
+        await busdContract.methods.transfer(bob, '10000000000000000000').send({ from: busdOwner});
+        await busdContract.methods.transfer(minter, '10000000000000000000').send({ from: busdOwner});
+        await busdContract.methods.transfer(dev, '10000000000000000000').send({ from: busdOwner});
         
         console.log('---ended-before---');
     });
@@ -47,21 +47,21 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
 
         fee_address = await xbusd.feeAddress();
         await xbusd.set_new_feeAmount(10);     
-        await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
+        await busdContract.methods.approve(xbusd.address, '10000000000000000000').send({
             from: admin
         }); 
-        await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
+        await busdContract.methods.approve(xbusd.address, '10000000000000000000').send({
             from: alice
         });
 
-        await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
+        await busdContract.methods.approve(xbusd.address, '10000000000000000000').send({
             from: dev
         }); 
-        await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
+        await busdContract.methods.approve(xbusd.address, '10000000000000000000').send({
             from: minter
         });
 
-        await busdContract.methods.approve(xbusd.address, '1000000000000000000').send({
+        await busdContract.methods.approve(xbusd.address, '10000000000000000000').send({
             from: bob
         });
 
@@ -72,10 +72,10 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         console.log('before_minter_balance',await busdContract.methods.balanceOf(minter).call());
         console.log('before_bob_balance',await busdContract.methods.balanceOf(bob).call());
 
-        await xbusd.deposit('8000000', {from: admin});
-        await xbusd.deposit('10000000', {from: dev});
-        await xbusd.deposit('10000000', {from: minter});
-        await busdContract.methods.transfer(xbusd.address, '500000').send({
+        await xbusd.deposit('2000000000000000000', {from: admin});
+        await xbusd.deposit('2000000000000000000', {from: dev});
+        await xbusd.deposit('2000000000000000000', {from: minter});
+        await busdContract.methods.transfer(xbusd.address, '1000000000000000000').send({
             from: admin
         });
 
@@ -83,8 +83,8 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         await xbusd.withdrawFee({from : alice});
         console.log('fee_address_balance', await busdContract.methods.balanceOf(fee_address).call());
 
-        await xbusd.deposit('2000000', {from: bob});
-        await xbusd.deposit('5000000', {from: alice});
+        await xbusd.deposit('2000000000000000000', {from: alice});
+        await xbusd.deposit('2000000000000000000', {from: bob});
         
         let tokenAmount = await xbusd.balanceOf(alice);
         console.log('------------', tokenAmount.toString());
@@ -92,10 +92,6 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         let provider = await xbusd.provider();
         console.log('provider',provider.toString());
 
-        tokenAmount = await xbusd.balanceOf(alice);
-        console.log('alice------------', tokenAmount.toString());
-        await xbusd.withdraw(tokenAmount.toString(), {from: alice});
-        
         tokenAmount = await xbusd.balanceOf(admin);
         console.log('admin------------', tokenAmount.toString());
         await xbusd.withdraw(tokenAmount.toString(), {from: admin});
@@ -108,13 +104,17 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         console.log('minter------------', tokenAmount.toString());
         await xbusd.withdraw(tokenAmount.toString(), {from: minter});
 
+        tokenAmount = await xbusd.balanceOf(bob);
+        console.log('bob------------', tokenAmount.toString());
+        await xbusd.withdraw(tokenAmount.toString(), {from: bob});
+
         console.log('fee_address_balance', await busdContract.methods.balanceOf(fee_address).call());
         await xbusd.withdrawFee({from : alice});
         console.log('fee_address_balance', await busdContract.methods.balanceOf(fee_address).call());
         
-        tokenAmount = await xbusd.balanceOf(bob);
-        console.log('bob------------', tokenAmount.toString());
-        await xbusd.withdraw(tokenAmount.toString(), {from: bob});
+        tokenAmount = await xbusd.balanceOf(alice);
+        console.log('alice------------', tokenAmount.toString());
+        await xbusd.withdraw(tokenAmount.toString(), {from: alice});
 
         console.log('after_xbusd_balance',await busdContract.methods.balanceOf(xbusd.address).call());
         console.log('after_alice_balance',await busdContract.methods.balanceOf(alice).call());

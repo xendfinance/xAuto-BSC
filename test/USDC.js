@@ -9,7 +9,7 @@ const usdcABI = require('./abi/usdc');
 
 const usdcAddress = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
 const usdcContract = new web3.eth.Contract(usdcABI, usdcAddress);
-const usdcOwner = '0x526d47FedF9651a8db7d2E2cc2e68cC4c1849783';
+const usdcOwner = '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d';
 
 contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
 
@@ -28,11 +28,11 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         const forceSend = await ForceSend.new();
         await forceSend.go(usdcOwner, { value: ether('1') });
         
-        await usdcContract.methods.transfer(alice, '1000000000000000000').send({ from: usdcOwner});
-        await usdcContract.methods.transfer(admin, '1000000000000000000').send({ from: usdcOwner});
-        await usdcContract.methods.transfer(bob, '1000000000000000000').send({ from: usdcOwner});
-        await usdcContract.methods.transfer(minter, '1000000000000000000').send({ from: usdcOwner});
-        await usdcContract.methods.transfer(dev, '1000000000000000000').send({ from: usdcOwner});
+        await usdcContract.methods.transfer(alice, '10000000000000000000').send({ from: usdcOwner});
+        await usdcContract.methods.transfer(admin, '10000000000000000000').send({ from: usdcOwner});
+        await usdcContract.methods.transfer(bob, '10000000000000000000').send({ from: usdcOwner});
+        await usdcContract.methods.transfer(minter, '10000000000000000000').send({ from: usdcOwner});
+        await usdcContract.methods.transfer(dev, '10000000000000000000').send({ from: usdcOwner});
         
         console.log('---ended-before---');
     });
@@ -47,21 +47,21 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
 
         fee_address = await xusdc.feeAddress();
         await xusdc.set_new_feeAmount(10);     
-        await usdcContract.methods.approve(xusdc.address, '1000000000000000000').send({
+        await usdcContract.methods.approve(xusdc.address, '10000000000000000000').send({
             from: admin
         }); 
-        await usdcContract.methods.approve(xusdc.address, '1000000000000000000').send({
+        await usdcContract.methods.approve(xusdc.address, '10000000000000000000').send({
             from: alice
         });
 
-        await usdcContract.methods.approve(xusdc.address, '1000000000000000000').send({
+        await usdcContract.methods.approve(xusdc.address, '10000000000000000000').send({
             from: dev
         }); 
-        await usdcContract.methods.approve(xusdc.address, '1000000000000000000').send({
+        await usdcContract.methods.approve(xusdc.address, '10000000000000000000').send({
             from: minter
         });
 
-        await usdcContract.methods.approve(xusdc.address, '1000000000000000000').send({
+        await usdcContract.methods.approve(xusdc.address, '10000000000000000000').send({
             from: bob
         });
 
@@ -72,23 +72,43 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         console.log('before_minter_balance',await usdcContract.methods.balanceOf(minter).call());
         console.log('before_bob_balance',await usdcContract.methods.balanceOf(bob).call());
 
-        await xusdc.deposit('8000000', {from: admin});
-        await xusdc.deposit('10000000', {from: dev});
-        await xusdc.deposit('10000000', {from: minter});
-
-        await usdcContract.methods.transfer(xusdc.address, '500000').send({
+        await xusdc.deposit('2000000000000000000', {from: admin});
+        let pool = await xusdc.pool();
+        console.log('pool: ', pool.toString())
+        await xusdc.deposit('2000000000000000000', {from: dev});
+        pool = await xusdc.pool();
+        console.log('pool: ', pool.toString())
+        await xusdc.deposit('2000000000000000000', {from: minter});
+        pool = await xusdc.pool();
+        console.log('pool: ', pool.toString())
+        // await usdcContract.methods.approve(xusdc.address, '5000000000').send({
+        //     from: admin
+        // }); 
+        await usdcContract.methods.transfer(xusdc.address, '1000000000000000000').send({
             from: admin
         });
+         pool = await xusdc.balance();
+        console.log('pool: ', pool.toString())
 
-        // console.log('fee_address_balance', await usdcContract.methods.balanceOf(fee_address).call());
-        // await xusdc.withdrawFee({from : alice});
-        // console.log('fee_address_balance', await usdcContract.methods.balanceOf(fee_address).call());
+        let testBalance = await usdcContract.methods.balanceOf(xusdc.address).call();
+        console.log('bbb: ', testBalance.toString());
 
-        await xusdc.deposit('2000000', {from: bob});
-        await xusdc.deposit('5000000', {from: alice});
+        pool = await xusdc.pool();
+        console.log('pool: ', pool.toString())
+
+        console.log('fee_address_balance', await usdcContract.methods.balanceOf(fee_address).call());
+        await xusdc.withdrawFee({from : alice});
+        console.log('fee_address_balance', await usdcContract.methods.balanceOf(fee_address).call());
+
+        await xusdc.deposit('2000000000000000000', {from: bob});
+        pool = await xusdc.pool();
+        console.log('pool: ', pool.toString())
+        await xusdc.deposit('2000000000000000000', {from: alice});
         
         let tokenAmount = await xusdc.balanceOf(alice);
         console.log('------------', tokenAmount.toString());
+        pool = await xusdc.pool();
+        console.log('pool: ', pool.toString())
         await xusdc.rebalance();
         let provider = await xusdc.provider();
         console.log('provider',provider.toString());
@@ -116,8 +136,8 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         tokenAmount = await xusdc.balanceOf(bob);
         console.log('bob------------', tokenAmount.toString());
         await xusdc.withdraw(tokenAmount.toString(), {from: bob});
-
-        console.log('after_xusdc_balance',await usdcContract.methods.balanceOf(xusdc.address).call());
+        let balance  = await xusdc.calcPoolValueInToken();
+        console.log('after_xusdc_balance',balance.toString());
         console.log('after_alice_balance',await usdcContract.methods.balanceOf(alice).call());
         console.log('after_admin_balance',await usdcContract.methods.balanceOf(admin).call());
         console.log('after_dev_balance',await usdcContract.methods.balanceOf(dev).call());
