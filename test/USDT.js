@@ -28,11 +28,11 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         const forceSend = await ForceSend.new();
         await forceSend.go(usdtOwner, { value: ether('1') });
         
-        await usdtContract.methods.transfer(alice, '1000000000000000000').send({ from: usdtOwner});
-        await usdtContract.methods.transfer(admin, '1000000000000000000').send({ from: usdtOwner});
-        await usdtContract.methods.transfer(bob, '1000000000000000000').send({ from: usdtOwner});
-        await usdtContract.methods.transfer(minter, '1000000000000000000').send({ from: usdtOwner});
-        await usdtContract.methods.transfer(dev, '1000000000000000000').send({ from: usdtOwner});
+        await usdtContract.methods.transfer(alice, '10000000000000000000').send({ from: usdtOwner});
+        await usdtContract.methods.transfer(admin, '10000000000000000000').send({ from: usdtOwner});
+        await usdtContract.methods.transfer(bob, '10000000000000000000').send({ from: usdtOwner});
+        await usdtContract.methods.transfer(minter, '10000000000000000000').send({ from: usdtOwner});
+        await usdtContract.methods.transfer(dev, '10000000000000000000').send({ from: usdtOwner});
         
         console.log('---ended-before---');
     });
@@ -47,21 +47,21 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
 
         fee_address = await xusdt.feeAddress();
         await xusdt.set_new_feeAmount(10);     
-        await usdtContract.methods.approve(xusdt.address, '1000000000000000000').send({
+        await usdtContract.methods.approve(xusdt.address, '10000000000000000000').send({
             from: admin
         }); 
-        await usdtContract.methods.approve(xusdt.address, '1000000000000000000').send({
+        await usdtContract.methods.approve(xusdt.address, '10000000000000000000').send({
             from: alice
         });
 
-        await usdtContract.methods.approve(xusdt.address, '1000000000000000000').send({
+        await usdtContract.methods.approve(xusdt.address, '10000000000000000000').send({
             from: dev
         }); 
-        await usdtContract.methods.approve(xusdt.address, '1000000000000000000').send({
+        await usdtContract.methods.approve(xusdt.address, '10000000000000000000').send({
             from: minter
         });
 
-        await usdtContract.methods.approve(xusdt.address, '1000000000000000000').send({
+        await usdtContract.methods.approve(xusdt.address, '10000000000000000000').send({
             from: bob
         });
 
@@ -72,10 +72,10 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         console.log('before_minter_balance',await usdtContract.methods.balanceOf(minter).call());
         console.log('before_bob_balance',await usdtContract.methods.balanceOf(bob).call());
 
-        await xusdt.deposit('8000000', {from: admin});
-        await xusdt.deposit('10000000', {from: dev});
-        await xusdt.deposit('10000000', {from: minter});
-        await usdtContract.methods.transfer(xusdt.address, '500000').send({
+        await xusdt.deposit('2000000000000000000', {from: admin});
+        await xusdt.deposit('2000000000000000000', {from: dev});
+        await xusdt.deposit('2000000000000000000', {from: minter});
+        await usdtContract.methods.transfer(xusdt.address, '1000000000000000000').send({
             from: admin
         });
 
@@ -83,8 +83,8 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         await xusdt.withdrawFee({from : alice});
         console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
 
-        await xusdt.deposit('2000000', {from: bob});
-        await xusdt.deposit('5000000', {from: alice});
+        await xusdt.deposit('2000000000000000000', {from: bob});
+        await xusdt.deposit('2000000000000000000', {from: alice});
         
         let tokenAmount = await xusdt.balanceOf(alice);
         console.log('------------', tokenAmount.toString());

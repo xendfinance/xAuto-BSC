@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+// import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/proxy/Initializable.sol";
@@ -124,15 +124,14 @@ contract xUSDT is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
         if (totalSupply() == 0) {
           shares = _amount;
         } else {
-          shares = (_amount.mul(totalSupply())).div(pool);
+          uint256 fee = pool > totalDepositedAmount? pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision) : 0;
+          shares = (_amount.mul(totalSupply())).div(pool.sub(fee));
         }
       }
       pool = _calcPoolValueInToken();
       _mint(msg.sender, shares);
       depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amount);
       totalDepositedAmount = totalDepositedAmount.add(_amount);
-      if(lastWithdrawFeeTime == 0)
-        lastWithdrawFeeTime = block.timestamp;
       emit Deposit(msg.sender, _amount);
   }
 
@@ -149,14 +148,13 @@ contract xUSDT is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
       // Could have over value from xTokens
       pool = _calcPoolValueInToken();
       // Calc to redeem before updating balances
-      uint256 fee = pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision);
-      // uint256 fee = 0;
+      uint256 fee = pool > totalDepositedAmount? pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision) : 0;
       uint256 r = (pool.sub(fee).mul(_shares)).div(totalSupply());
 
       emit Transfer(msg.sender, address(0), _shares);
 
       // Check balance
-      uint256 b = IERC20(token).balanceOf(address(this));
+      uint256 b = _balance();
       if (b < r) {
         _withdrawSome(r.sub(b));
       }
@@ -252,7 +250,7 @@ contract xUSDT is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
   function _balanceFulcrumInToken() internal view returns (uint256) {
     uint256 b = _balanceFulcrum();
     if (b > 0 && withdrawable[Lender.FULCRUM]) {
-      b = Fulcrum(fulcrum).assetBalanceOf(address(this)).add(1);
+      b = Fulcrum(fulcrum).assetBalanceOf(address(this));
     }
     return b;
   }
@@ -262,7 +260,7 @@ contract xUSDT is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
     if (b > 0 && withdrawable[Lender.FORTUBE]) {
       uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
       uint256 oneAmount = FortubeToken(fortubeToken).ONE();
-      b = b.mul(exchangeRate).div(oneAmount).add(1);
+      b = b.mul(exchangeRate).div(oneAmount);
     }
     return b;
   }
@@ -271,7 +269,7 @@ contract xUSDT is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
     uint256 b = _balanceVenus();
     if (b > 0 && withdrawable[Lender.VENUS]) {
       uint256 exchangeRate = IVenus(venusToken).exchangeRateStored();
-      b = b.mul(exchangeRate).div(1e28).add(1).mul(1e10);
+      b = b.mul(exchangeRate).div(1e18);
     }
     return b;
   }
@@ -279,7 +277,7 @@ contract xUSDT is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
   function _balanceAlpacaInToken() internal view returns (uint256) {
     uint256 b = _balanceAlpaca();
     if (b > 0 && withdrawable[Lender.ALPACA]) {
-      b = b.mul(IAlpaca(alpacaToken).totalToken()).div(IAlpaca(alpacaToken).totalSupply()).add(1);
+      b = b.mul(IAlpaca(alpacaToken).totalToken()).div(IAlpaca(alpacaToken).totalSupply());
     }
     return b;
   }
@@ -352,7 +350,7 @@ contract xUSDT is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
     uint256 b = _balanceVenus();
     uint256 bT = _balanceVenusInToken();
     require(bT >= _amount, "insufficient funds");
-    uint256 amount = (b.mul(_amount)).div(bT);
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
     _withdrawVenus(amount);
   }
 
@@ -386,7 +384,7 @@ contract xUSDT is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
       _withdrawAll();
     }
 
-    if (_balance() > 0) {
+    if (_balance() > 1) {
       if (newProvider == Lender.FULCRUM) {
         supplyFulcrum(_balance());
       } else if (newProvider == Lender.FORTUBE) {
@@ -469,7 +467,7 @@ contract xUSDT is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
 
   function withdrawFee() public {
     pool = _calcPoolValueInToken();
-    uint256 amount = pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision).mul(block.timestamp.sub(lastWithdrawFeeTime)).div(365 * 24 * 60 * 60);
+    uint256 amount = pool > totalDepositedAmount? pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision).mul(block.timestamp.sub(lastWithdrawFeeTime)).div(365 * 24 * 60 * 60): 0;
     if(amount > 0){
       _withdrawSome(amount);
       IERC20(token).approve(feeAddress, amount);

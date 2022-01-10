@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+// import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/proxy/Initializable.sol";
@@ -132,15 +132,14 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
         if (totalSupply() == 0) {
           shares = _amount;
         } else {
-          shares = (_amount.mul(totalSupply())).div(pool);
+          uint256 fee = pool > totalDepositedAmount? pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision) : 0;
+          shares = (_amount.mul(totalSupply())).div(pool.sub(fee));
         }
       }
       pool = _calcPoolValueInToken();
       _mint(msg.sender, shares);
       depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amount);
       totalDepositedAmount = totalDepositedAmount.add(_amount);
-      if(lastWithdrawFeeTime == 0)
-        lastWithdrawFeeTime = block.timestamp;
       emit Deposit(msg.sender, _amount);
   }
 
@@ -155,30 +154,18 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
 
       // Could have over value from xTokens
       pool = _calcPoolValueInToken();
-      // uint256 i = (pool.mul(ibalance)).div(totalSupply());
       // Calc to redeem before updating balances
-      uint256 fee = pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision);
+      uint256 fee = pool > totalDepositedAmount? pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision) : 0;
       uint256 r = (pool.sub(fee).mul(_shares)).div(totalSupply());
-      // if(i < depositedAmount[msg.sender]){
-      //   i = i.add(1);
-      //   r = r.add(1);
-      // }
-      // uint256 profit = (i.sub(depositedAmount[msg.sender])).mul(_shares.div(depositedAmount[msg.sender]));
 
       emit Transfer(msg.sender, address(0), _shares);
 
       // Check balance
-      // uint256 b = IERC20(token).balanceOf(address(this));
       uint256 b = address(this).balance;
       if (b < r) {
         _withdrawSome(r.sub(b));
       }
       bool success;
-      // uint256 fee = profit.mul(feeAmount).div(feePrecision);
-      // if(fee > 0){
-      //   (success,) = payable(feeAddress).call{value: fee}("");
-      //   require(success, "Failed to send BNB");
-      // }
       (success,) = payable(msg.sender).call{value: r}("");
       require(success, "Failed to send BNB");
 
@@ -276,7 +263,7 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
     if (b > 0 && withdrawable[Lender.FORTUBE]) {
       uint256 exchangeRate = FortubeToken(fortubeToken).exchangeRateStored();
       uint256 oneAmount = FortubeToken(fortubeToken).ONE();
-      b = b.mul(exchangeRate).div(oneAmount).add(1);
+      b = b.mul(exchangeRate).div(oneAmount);
     }
     return b;
   }
@@ -285,7 +272,7 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
     uint256 b = _balanceVenus();
     if (b > 0 && withdrawable[Lender.VENUS]) {
       uint256 exchangeRate = IVenus(venusToken).exchangeRateStored();
-      b = b.mul(exchangeRate).div(1e28).add(1).mul(1e10);
+      b = b.mul(exchangeRate).div(1e18);
     }
     return b;
   }
@@ -293,7 +280,7 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
   function _balanceAlpacaInToken() internal view returns (uint256) {
     uint256 b = _balanceAlpaca();
     if (b > 0 && withdrawable[Lender.ALPACA]) {
-      b = b.mul(IAlpaca(alpacaToken).totalToken()).div(IAlpaca(alpacaToken).totalSupply()).add(1);
+      b = b.mul(IAlpaca(alpacaToken).totalToken()).div(IAlpaca(alpacaToken).totalSupply());
     }
     return b;
   }
@@ -349,7 +336,7 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
     uint256 bT = _balanceFulcrumInToken();
     require(bT >= _amount, "insufficient funds");
     // can have unintentional rounding errors
-    uint256 amount = (b.mul(_amount)).div(bT);
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
     _withdrawFulcrum(amount);
   }
 
@@ -357,7 +344,7 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
     uint256 b = _balanceFortube();
     uint256 bT = _balanceFortubeInToken();
     require(bT >= _amount, "insufficient funds");
-    uint256 amount = (b.mul(_amount)).div(bT);
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
     _withdrawFortube(amount);
   }
 
@@ -365,7 +352,7 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
     uint256 b = _balanceVenus();
     uint256 bT = _balanceVenusInToken();
     require(bT >= _amount, "insufficient funds");
-    uint256 amount = (b.mul(_amount)).div(bT);
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
     _withdrawVenus(amount);
   }
 
@@ -373,7 +360,7 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
     uint256 b = _balanceAlpaca();
     uint256 bT = _balanceAlpacaInToken();
     require(bT >= _amount, "insufficient funds");
-    uint256 amount = (b.mul(_amount)).div(bT);
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
     _withdrawAlpaca(amount);
   }
 
@@ -399,7 +386,7 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
       _withdrawAll();
     }
 
-    if (_balance() > 0) {
+    if (_balance() > 1) {
       if (newProvider == Lender.FULCRUM) {
         supplyFulcrum(_balance());
       } else if (newProvider == Lender.FORTUBE) {
@@ -482,7 +469,7 @@ contract xBNB is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initia
 
   function withdrawFee() public {
     pool = _calcPoolValueInToken();
-    uint256 amount = pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision).mul(block.timestamp.sub(lastWithdrawFeeTime)).div(365 * 24 * 60 * 60);
+    uint256 amount = pool > totalDepositedAmount? pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision).mul(block.timestamp.sub(lastWithdrawFeeTime)).div(365 * 24 * 60 * 60): 0;
     if(amount > 0){
       _withdrawSome(amount);
       (bool success,) = payable(feeAddress).call{value: amount}("");

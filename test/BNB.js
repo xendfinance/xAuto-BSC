@@ -41,20 +41,20 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         let fee_address = await xbnb.feeAddress();
         console.log('fee_address: ', fee_address);
 
-        await xbnb.deposit({from: alice, value: ether('1')});
-        await xbnb.deposit({from: admin, value: ether('2')});
-        await xbnb.deposit({from: bob, value: ether('3')});
+        await xbnb.deposit({from: alice, value: ether('20')});
+        await xbnb.deposit({from: admin, value: ether('20')});
+        await xbnb.deposit({from: bob, value: ether('20')});
         await web3.eth.sendTransaction({
-            from: alice,
+            from: admin,
             to: xbnb.address,
-            value: '10000000',
+            value: ether('5'),
         })
         console.log('xbnb_balance', await web3.eth.getBalance(xbnb.address));
         console.log('fee_address_balance', await web3.eth.getBalance(fee_address));
         await xbnb.withdrawFee({from : alice});
         console.log('fee_address_balance', await web3.eth.getBalance(fee_address));
-        await xbnb.deposit({from: dev, value: ether('2')});
-        await xbnb.deposit({from: minter, value: ether('10')});
+        await xbnb.deposit({from: dev, value: ether('20')});
+        await xbnb.deposit({from: minter, value: ether('20')});
         balance = await xbnb.balanceOf(alice);
         console.log('balance', balance.toString());
 
@@ -92,6 +92,17 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         console.log('final_balance', currentBalance.toString());
         balance = await web3.eth.getBalance(minter);
         console.log('minter_balance', balance);
+
+        balance = await web3.eth.getBalance(alice);
+        console.log('after_alice_balance', balance);
+        balance = await web3.eth.getBalance(admin);
+        console.log('after_admin_balance', balance);
+        balance = await web3.eth.getBalance(dev);
+        console.log('after_dev_balance', balance);
+        balance = await web3.eth.getBalance(minter);
+        console.log('after_minter_balance', balance);
+        balance = await web3.eth.getBalance(bob);
+        console.log('after_bob_balance', balance);
 
         console.log('fee_address_balance', await web3.eth.getBalance(fee_address));
         await xbnb.withdrawFee({from : alice});
