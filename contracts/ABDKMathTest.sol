@@ -5,11 +5,9 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./libraries/Ownable.sol";
-// import "./libraries/AttoDecimal.sol";
 import {ABDKMath64x64} from "./libraries/ABDKMath64x64.sol";
 
-contract ABDKMathTest is Ownable {
+contract ABDKMathTest{
   using SafeMath for uint256;
   using Address for address;
   // using AttoDecimal for AttoDecimal.Instance;
