@@ -4,9 +4,8 @@ pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/utils/Context.sol";
 import '@openzeppelin/contracts/math/SafeMath.sol';
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/proxy/Initializable.sol";
-import "./libraries/Ownable.sol";
+// import "./libraries/Ownable.sol";
 import {ABDKMath64x64} from "./libraries/ABDKMath64x64.sol";
 
 // Fulcrum
@@ -59,9 +58,13 @@ interface IUniswapV2Router02{
   function getAmountsOut(uint256 _amount, address[] calldata path) external view returns (uint256[] memory);
 }
 
-contract APRWithPoolOracle is Ownable, Initializable {
+contract APRWithPoolOracle is Context, Initializable {
   using SafeMath for uint256;
   using Address for address;
+
+  address private _owner;
+  address private _candidate;
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
   address private wbnb;
   address private uniswapRouter;
@@ -69,6 +72,9 @@ contract APRWithPoolOracle is Ownable, Initializable {
   constructor() public {}
 
   function initialize() public initializer{
+    address msgSender = _msgSender();
+    _owner = msgSender;
+    emit OwnershipTransferred(address(0), msgSender);
     wbnb = address(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
     uniswapRouter = address(0x10ED43C718714eb63d5aA57B78B54704E256024E);
   }
@@ -112,5 +118,30 @@ contract APRWithPoolOracle is Ownable, Initializable {
           1e18
         )*1e2;
     }
+  }
+
+  function owner() public view virtual returns (address) {
+      return _owner;
+  }
+
+  modifier onlyOwner() {
+      require(owner() == _msgSender(), "Ownable: caller is not the owner");
+      _;
+  }
+
+  function renounceOwnership() public virtual onlyOwner {
+      emit OwnershipTransferred(_owner, address(0));
+      _owner = address(0);
+  }
+
+  function transferOwnership(address newOwner) public virtual onlyOwner {
+      require(newOwner != address(0), "Ownable: new owner is the zero address");
+      _candidate = newOwner;
+  }
+
+  function acceptOwnership() external {
+      require(msg.sender == _candidate, "Ownable: not cadidate");
+      emit OwnershipTransferred(_owner, _candidate);
+      _owner = _candidate;
   }
 }

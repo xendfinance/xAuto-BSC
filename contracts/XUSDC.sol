@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/proxy/Initializable.sol";
-import "./libraries/Ownable.sol";
+// import "./libraries/Ownable.sol";
 import './libraries/TokenStructs.sol';
 import './interfaces/FortubeToken.sol';
 import './interfaces/FortubeBank.sol';
@@ -18,10 +18,14 @@ import './interfaces/IIEarnManager.sol';
 import './interfaces/ITreasury.sol';
 import './interfaces/IVenus.sol';
 
-contract xUSDC is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initializable {
+contract xUSDC is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable {
   using SafeERC20 for IERC20;
   using Address for address;
   using SafeMath for uint256;
+
+  address private _owner;
+  address private _candidate;
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
   uint256 public pool;
   address public token;
@@ -62,6 +66,9 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, Ownable, TokenStructs, Initi
   function initialize(
     address _apr
   ) public initializer{
+    address msgSender = _msgSender();
+    _owner = msgSender;
+    emit OwnershipTransferred(address(0), msgSender);
     apr = _apr;
     _name = "xend USDC";
     _symbol = "xUSDC";
@@ -449,4 +456,29 @@ function _withdrawSomeVenus(uint256 _amount) internal {
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual { }
+  
+    function owner() public view virtual returns (address) {
+        return _owner;
+    }
+
+    modifier onlyOwner() {
+        require(owner() == _msgSender(), "Ownable: caller is not the owner");
+        _;
+    }
+
+    function renounceOwnership() public virtual onlyOwner {
+        emit OwnershipTransferred(_owner, address(0));
+        _owner = address(0);
+    }
+
+    function transferOwnership(address newOwner) public virtual onlyOwner {
+        require(newOwner != address(0), "Ownable: new owner is the zero address");
+        _candidate = newOwner;
+    }
+
+    function acceptOwnership() external {
+        require(msg.sender == _candidate, "Ownable: not cadidate");
+        emit OwnershipTransferred(_owner, _candidate);
+        _owner = _candidate;
+    }
 }
