@@ -44,10 +44,7 @@ contract xBNB is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable {
   address public venusToken;
   uint256 public feePrecision;
   address public alpacaToken;
-  uint256 private lastWithdrawFeeTime;
-  uint256 public totalDepositedAmount;
-
-  mapping (address => uint256) depositedAmount;
+  uint256 public lastPool;
 
   enum Lender {
       NONE,
@@ -137,14 +134,18 @@ contract xBNB is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable {
         if (totalSupply() == 0) {
           shares = _amount;
         } else {
-          uint256 fee = pool > totalDepositedAmount? pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision) : 0;
+          uint256 profit = pool.sub(lastPool);
+          uint256 fee = profit.mul(feeAmount).div(feePrecision);
+          if(fee > 0){
+            _withdrawSome(fee);
+            (bool success,) = payable(feeAddress).call{value: fee}("");
+          }
           shares = (_amount.mul(totalSupply())).div(pool.sub(fee));
         }
       }
       pool = _calcPoolValueInToken();
+      lastPool = pool;
       _mint(msg.sender, shares);
-      depositedAmount[msg.sender] = depositedAmount[msg.sender].add(_amount);
-      totalDepositedAmount = totalDepositedAmount.add(_amount);
       emit Deposit(msg.sender, _amount);
   }
 
@@ -160,8 +161,14 @@ contract xBNB is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable {
       // Could have over value from xTokens
       pool = _calcPoolValueInToken();
       // Calc to redeem before updating balances
-      uint256 fee = pool > totalDepositedAmount? pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision) : 0;
-      uint256 r = (pool.sub(fee).mul(_shares)).div(totalSupply());
+      uint256 profit = pool.sub(lastPool);
+      uint256 fee = profit.mul(feeAmount).div(feePrecision);
+      if(fee > 0){
+        _withdrawSome(fee);
+        (bool success,) = payable(feeAddress).call{value: fee}("");
+      }
+      pool = _calcPoolValueInToken();
+      uint256 r = (pool.mul(_shares)).div(totalSupply());
 
       emit Transfer(msg.sender, address(0), _shares);
 
@@ -175,10 +182,9 @@ contract xBNB is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable {
       require(success, "Failed to send BNB");
 
       _burn(msg.sender, _shares);
-      totalDepositedAmount = totalDepositedAmount.sub(_shares.mul(depositedAmount[msg.sender]).div(ibalance));
-      depositedAmount[msg.sender] = depositedAmount[msg.sender].sub(_shares.mul(depositedAmount[msg.sender]).div(ibalance));
       rebalance();
       pool = _calcPoolValueInToken();
+      lastPool = pool;
       emit Withdraw(msg.sender, _shares);
   }
 
@@ -214,10 +220,6 @@ contract xBNB is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable {
 
   function balance() external view returns (uint256) {
     return _balance();
-  }
-
-  function getDepositedAmount(address investor) public view returns (uint256) {
-    return depositedAmount[investor];
   }
 
   function balanceFortubeInToken() external view returns (uint256) {
@@ -310,7 +312,7 @@ contract xBNB is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable {
   }
 
   function _balanceAlpaca() public view returns (uint256) {
-    if(withdrawable[Lender.VENUS])
+    if(withdrawable[Lender.ALPACA])
       return IAlpaca(alpacaToken).balanceOf(address(this));
     else
       return 0;
@@ -470,16 +472,6 @@ contract xBNB is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable {
     lenderStatus[lender] = false;
     withdrawable[lender] = false;
     rebalance();
-  }
-
-  function withdrawFee() public {
-    pool = _calcPoolValueInToken();
-    uint256 amount = pool > totalDepositedAmount? pool.sub(totalDepositedAmount).mul(feeAmount).div(feePrecision).mul(block.timestamp.sub(lastWithdrawFeeTime)).div(365 * 24 * 60 * 60): 0;
-    if(amount > 0){
-      _withdrawSome(amount);
-      (bool success,) = payable(feeAddress).call{value: amount}("");
-      lastWithdrawFeeTime = block.timestamp;
-    }    
   }
 
     function name() public view virtual returns (string memory) {
