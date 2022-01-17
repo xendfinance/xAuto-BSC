@@ -80,8 +80,6 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         });
 
         console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
-        await xusdt.withdrawFee({from : alice});
-        console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
 
         await xusdt.deposit('2000000000000000000', {from: bob});
         await xusdt.deposit('2000000000000000000', {from: alice});
@@ -109,12 +107,10 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         await xusdt.withdraw(tokenAmount.toString(), {from: minter});
 
         console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
-        await xusdt.withdrawFee({from : alice});
-        console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
         
         tokenAmount = await xusdt.balanceOf(bob);
         console.log('bob------------', tokenAmount.toString());
-        await xusdt.withdraw(tokenAmount.toString(), {from: bob});
+        await xusdt.withdraw((tokenAmount-1).toString(), {from: bob});
 
         console.log('after_xusdt_balance',await usdtContract.methods.balanceOf(xusdt.address).call());
         console.log('after_alice_balance',await usdtContract.methods.balanceOf(alice).call());
@@ -123,8 +119,6 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         console.log('after_minter_balance',await usdtContract.methods.balanceOf(minter).call());
         console.log('after_bob_balance',await usdtContract.methods.balanceOf(bob).call());
 
-        console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
-        await xusdt.withdrawFee({from : alice});
         console.log('fee_address_balance', await usdtContract.methods.balanceOf(fee_address).call());
     
     })
