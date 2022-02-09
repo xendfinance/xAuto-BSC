@@ -25,9 +25,11 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
             from: alice
         });
 
+        // Forcefully send 1 ETH to busdOwner (Unlocked account by forking the mainnet)
         const forceSend = await ForceSend.new();
         await forceSend.go(busdOwner, { value: ether('1') });
         
+        // Send 10ETH from unlocked acct to testing accts
         await busdContract.methods.transfer(alice, '10000000000000000000').send({ from: busdOwner});
         await busdContract.methods.transfer(admin, '10000000000000000000').send({ from: busdOwner});
         await busdContract.methods.transfer(bob, '10000000000000000000').send({ from: busdOwner});
@@ -38,15 +40,20 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
     });
 
     it('recommend test', async() => {
+        // Instantiate the relevant contracts
         let aprWithPoolOracle = this.aprWithPoolOracle;
         let earnAPRWithPool = this.earnAPRWithPool;
         let xbusd = this.xbusdContract;
+        // Run the contract's constructor functions (upgradeable)
         await aprWithPoolOracle.initialize();
         await earnAPRWithPool.initialize(aprWithPoolOracle.address)
         await xbusd.initialize(earnAPRWithPool.address)
 
+        // Set fee to be charged users for investing pool
         fee_address = await xbusd.feeAddress();
         await xbusd.set_new_feeAmount(10);     
+
+        // Testing accounts, approve xBUSD pool to transfer 10BUSD on their behalf 
         await busdContract.methods.approve(xbusd.address, '10000000000000000000').send({
             from: admin
         }); 
@@ -65,6 +72,7 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
             from: bob
         });
 
+        // Users balance before depositing in pool
         console.log('before_xbusd_balance',await busdContract.methods.balanceOf(xbusd.address).call());
         console.log('before_alice_balance',await busdContract.methods.balanceOf(alice).call());
         console.log('before_admin_balance',await busdContract.methods.balanceOf(admin).call());
@@ -72,6 +80,7 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         console.log('before_minter_balance',await busdContract.methods.balanceOf(minter).call());
         console.log('before_bob_balance',await busdContract.methods.balanceOf(bob).call());
 
+        // Users deposit 2BUSD into pool
         await xbusd.deposit('2000000000000000000', {from: admin});
         await xbusd.deposit('2000000000000000000', {from: dev});
         await xbusd.deposit('2000000000000000000', {from: minter});
@@ -83,6 +92,7 @@ contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
         // await xbusd.withdrawFee({from : alice});
         console.log('fee_address_balance', await busdContract.methods.balanceOf(fee_address).call());
 
+        // Users deposit 2BUSD into pool
         await xbusd.deposit('2000000000000000000', {from: alice});
         await xbusd.deposit('2000000000000000000', {from: bob});
         
