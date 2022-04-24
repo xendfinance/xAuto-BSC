@@ -63,29 +63,34 @@ contract APRWithPoolOracle is Context, Initializable {
 
   address private _owner;
   address private _candidate;
-  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+  
+  bool public fulcrumStatus;
+  bool public fortubeStatus;
+  bool public venusStatus;
+  bool public alpacaStatus;
 
-  address private wbnb;
-  address private uniswapRouter;
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
   constructor() public {}
 
   function initialize() public initializer{
     address msgSender = _msgSender();
     _owner = msgSender;
+    fulcrumStatus = false;
+    fortubeStatus = true;
+    venusStatus = true;
+    alpacaStatus = true;
     emit OwnershipTransferred(address(0), msgSender);
-    wbnb = address(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
-    uniswapRouter = address(0x10ED43C718714eb63d5aA57B78B54704E256024E);
   }
   function getFulcrumAPRAdjusted(address token, uint256 _supply) external view returns(uint256) {
-    if(token == address(0))
+    if(token == address(0) || !fulcrumStatus)
       return 0;
     else
-      return IFulcrum(token).nextSupplyInterestRate(_supply);
+      return IFulcrum(token).supplyInterestRate();
   }
 
   function getFortubeAPRAdjusted(address token) external view returns (uint256) {
-    if(token == address(0))
+    if(token == address(0) || !fortubeStatus)
       return 0;
     else{
       IFortube fortube = IFortube(token);
@@ -94,13 +99,17 @@ contract APRWithPoolOracle is Context, Initializable {
   }
 
   function getVenusAPRAdjusted(address token) external view returns (uint256) {
-    uint256 supplyRatePerBlock = IVenus(token).supplyRatePerBlock();
-    int128 _temp = ABDKMath64x64.add(ABDKMath64x64.mul(ABDKMath64x64.divu(supplyRatePerBlock, 1e18),ABDKMath64x64.fromUInt(20*60*24)),ABDKMath64x64.fromUInt(1));
-    return ABDKMath64x64.mulu(ABDKMath64x64.sub(ABDKMath64x64.pow(_temp, 365),ABDKMath64x64.fromUInt(1)), 1e18)*1e2;
+    if(token == address(0) || !venusStatus)
+      return 0;
+    else{
+      uint256 supplyRatePerBlock = IVenus(token).supplyRatePerBlock();
+      int128 _temp = ABDKMath64x64.add(ABDKMath64x64.mul(ABDKMath64x64.divu(supplyRatePerBlock, 1e18),ABDKMath64x64.fromUInt(20*60*24)),ABDKMath64x64.fromUInt(1));
+      return ABDKMath64x64.mulu(ABDKMath64x64.sub(ABDKMath64x64.pow(_temp, 365),ABDKMath64x64.fromUInt(1)), 1e18)*1e2;
+    }
   }
 
   function getAlpacaAPRAdjusted(address token) external view returns(uint256) {
-    if(token == address(0))
+    if(token == address(0) || !alpacaStatus)
       return 0;
     else{
       IAlpaca alpaca = IAlpaca(token);
@@ -117,6 +126,22 @@ contract APRWithPoolOracle is Context, Initializable {
           1e18
         )*1e2;
     }
+  }
+
+  function setFulcrumStatus(bool status) external onlyOwner{
+    fulcrumStatus = status;
+  }
+
+  function setFortubeStatus(bool status) external onlyOwner{
+    fortubeStatus = status;
+  }
+
+  function setVenusStatus(bool status) external onlyOwner{
+    venusStatus = status;
+  }
+
+  function setAlpacaStatus(bool status) external onlyOwner{
+    alpacaStatus = status;
   }
 
   function owner() public view virtual returns (address) {
