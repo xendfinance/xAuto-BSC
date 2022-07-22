@@ -15,6 +15,7 @@ import './interfaces/FortubeBank.sol';
 import './interfaces/IIEarnManager.sol';
 import './interfaces/ITreasury.sol';
 import './interfaces/IVenus.sol';
+import './interfaces/IAlpaca.sol';
 
 contract xUSDC is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable {
   using SafeERC20 for IERC20;
@@ -34,12 +35,14 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable 
   uint256 public feeAmount;
   address public venusToken;
   uint256 public feePrecision;
+  address public alpacaToken;
   uint256 public lastPool;
 
   enum Lender {
       NONE,
       FORTUBE,
-      VENUS
+      VENUS,
+      ALPACA
   }
   mapping (Lender => bool) public lenderStatus;
   mapping (Lender => bool) public withdrawable;
@@ -72,12 +75,15 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable 
     fortubeBank = address(0x0cEA0832e9cdBb5D476040D58Ea07ecfbeBB7672);
     feeAddress = address(0x143afc138978Ad681f7C7571858FAAA9D426CecE);
     venusToken = address(0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8);
+    alpacaToken = address(0x800933D685E7Dc753758cEb77C8bd34aBF1E26d7);
     feeAmount = 0;
     feePrecision = 1000;
     lenderStatus[Lender.FORTUBE] = true;
     lenderStatus[Lender.VENUS] = true;
+    lenderStatus[Lender.ALPACA] = true;
     withdrawable[Lender.FORTUBE] = true;
     withdrawable[Lender.VENUS] = true;
+    withdrawable[Lender.ALPACA] = true;
     approveToken();
   }
 
@@ -173,7 +179,7 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable 
   receive() external payable {}
 
   function recommend() public view returns (Lender) {
-    (, uint256 ftapr, uint256 vapr,) = IIEarnManager(apr).recommend(token);
+    (, uint256 ftapr, uint256 vapr, uint256 aapr) = IIEarnManager(apr).recommend(token);
     uint256 max = 0;
     if (ftapr > max && lenderStatus[Lender.FORTUBE]) {
       max = ftapr;
@@ -181,11 +187,16 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable 
     if (vapr > max && lenderStatus[Lender.VENUS]) {
       max = vapr;
     }
+    if (aapr > max && lenderStatus[Lender.ALPACA]) {
+      max = aapr;
+    }
     Lender newProvider = Lender.NONE;
     if (max == ftapr) {
       newProvider = Lender.FORTUBE;
     } else if (max == vapr) {
       newProvider = Lender.VENUS;
+    } else if (max == aapr) {
+      newProvider = Lender.ALPACA;
     }
     return newProvider;
   }
@@ -197,6 +208,7 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable 
   function approveToken() public {
       IERC20(token).approve(FortubeBank(fortubeBank).controller(),  uint(-1));
       IERC20(token).approve(venusToken, uint(-1));
+      IERC20(token).approve(alpacaToken, uint(-1));
   }
   function balanceFortubeInToken() external view returns (uint256) {
     return _balanceFortubeInToken();
@@ -206,11 +218,19 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable 
     return _balanceVenusInToken();
   }
 
+  function balanceAlpacaInToken() external view returns (uint256) {
+    return _balanceAlpacaInToken();
+  }
+
   function balanceFortube() external view returns (uint256) {
     return _balanceFortube();
   }
   function balanceVenus() external view returns (uint256) {
     return _balanceVenus();
+  }
+
+  function balanceAlpaca() external view returns (uint256) {
+    return _balanceAlpaca();
   }
 
   function _balance() internal view returns (uint256) {
@@ -236,6 +256,15 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable 
     return b;
 
   }
+
+  function _balanceAlpacaInToken() internal view returns (uint256) {
+    uint256 b = _balanceAlpaca();
+    if (b > 0 && withdrawable[Lender.ALPACA]) {
+      b = b.mul(IAlpaca(alpacaToken).totalToken()).div(IAlpaca(alpacaToken).totalSupply());
+    }
+    return b;
+  }
+
   function _balanceFortube() internal view returns (uint256) {
     if(withdrawable[Lender.FORTUBE])
       return FortubeToken(fortubeToken).balanceOf(address(this));
@@ -249,6 +278,13 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable 
       return 0;
   }
 
+  function _balanceAlpaca() public view returns (uint256) {
+    if(withdrawable[Lender.ALPACA])
+      return IAlpaca(alpacaToken).balanceOf(address(this));
+    else
+      return 0;
+  }
+
   function _withdrawAll() internal {
     uint256  amount = _balanceFortube();
     if (amount > 0) {
@@ -257,6 +293,10 @@ contract xUSDC is Context, IERC20, ReentrancyGuard, TokenStructs, Initializable 
     amount = _balanceVenus();
     if (amount > 0) {
       _withdrawVenus(amount);
+    }
+    amount = _balanceAlpaca();
+    if (amount > 0) {
+      _withdrawAlpaca(amount);
     }
   }
 
@@ -276,6 +316,14 @@ function _withdrawSomeVenus(uint256 _amount) internal {
     _withdrawVenus(amount);
   }
 
+  function _withdrawSomeAlpaca(uint256 _amount) internal {
+    uint256 b = _balanceAlpaca();
+    uint256 bT = _balanceAlpacaInToken();
+    require(bT >= _amount, "insufficient funds");
+    uint256 amount = (b.mul(_amount)).div(bT).add(1);
+    _withdrawAlpaca(amount);
+  }
+
   function _withdrawSome(uint256 _amount) internal {
     
     if (provider == Lender.FORTUBE) {
@@ -283,6 +331,9 @@ function _withdrawSomeVenus(uint256 _amount) internal {
     }
     if (provider == Lender.VENUS) {
       _withdrawSomeVenus(_amount);
+    }
+    if (provider == Lender.ALPACA) {
+      _withdrawSomeAlpaca(_amount);
     }
   }
 
@@ -298,6 +349,8 @@ function _withdrawSomeVenus(uint256 _amount) internal {
         supplyFortube(_balance());
       } else if (newProvider == Lender.VENUS) {
         supplyVenus(_balance());
+      } else if (newProvider == Lender.ALPACA) {
+        supplyAlpaca(_balance());
       }
     }
 
@@ -312,6 +365,10 @@ function _withdrawSomeVenus(uint256 _amount) internal {
       require(amount > 0, "VENUS: supply failed");
       IVenus(venusToken).mint(amount);
   }
+  function supplyAlpaca(uint amount) public {
+      require(amount > 0, "ALPACA: supply failed");
+      IAlpaca(alpacaToken).deposit(amount);
+  }
   function _withdrawFortube(uint amount) internal {
       require(amount > 0, "FORTUBE: withdraw failed");
       FortubeBank(fortubeBank).withdraw(FortubeToken(fortubeToken).underlying(), amount);
@@ -320,9 +377,14 @@ function _withdrawSomeVenus(uint256 _amount) internal {
       require(amount > 0, "VENUS: withdraw failed");
       IVenus(venusToken).redeem(amount);
   }
+  function _withdrawAlpaca(uint amount) internal {
+      require(amount > 0, "ALPACA: withdraw failed");
+      IAlpaca(alpacaToken).withdraw(amount);
+  }
   function _calcPoolValueInToken() internal view returns (uint) {
     return _balanceFortubeInToken()
       .add(_balanceVenusInToken())
+      .add(_balanceAlpacaInToken())
       .add(_balance());
   }
 

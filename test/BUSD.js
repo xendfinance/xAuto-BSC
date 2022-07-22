@@ -9,7 +9,7 @@ const busdABI = require('./abi/busd');
 
 const busdAddress = '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56';
 const busdContract = new web3.eth.Contract(busdABI, busdAddress);
-const busdOwner = '0x468c0cfae487a9de23e20d0b29a2835dc058cdf7';
+const busdOwner = '0xf977814e90da44bfa03b6295a0616a897441acec';
 
 contract('test EarnAPRWithPool', async([alice, bob, admin, dev, minter]) => {
 
